@@ -1,6 +1,7 @@
 {
   "images" : [
     {
+      "filename" : "Mira (2).png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
@@ -12,6 +13,7 @@
           "value" : "dark"
         }
       ],
+      "filename" : "Mira (3).png",
       "idiom" : "universal",
       "platform" : "ios",
       "size" : "1024x1024"
