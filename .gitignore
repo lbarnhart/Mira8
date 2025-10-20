@@ -1,0 +1,6 @@
+# Local configuration (create from Configuration.sample.plist)
+Mira 8/App/Configuration/Configuration.plist
+App/Configuration/Config.xcconfig
+Mira 8/App/Configuration/Config.xcconfig
+*.xcconfig
+!*.xcconfig.template

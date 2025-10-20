@@ -1,0 +1,174 @@
+{
+  "products": [
+    {
+      "barcode": "4011",
+      "name": "Banana",
+      "brand": "Local Produce",
+      "category": "Fruits",
+      "nutritionalData": {
+        "calories": 89,
+        "protein": 1.1,
+        "carbohydrates": 22.8,
+        "fat": 0.3,
+        "fiber": 2.6,
+        "sugar": 12.2,
+        "sodium": 0.001,
+        "cholesterol": 0
+      },
+      "ingredients": ["banana"]
+    },
+    {
+      "barcode": "4030",
+      "name": "Kiwi",
+      "brand": "Local Produce",
+      "category": "Fruits",
+      "nutritionalData": {
+        "calories": 61,
+        "protein": 1.1,
+        "carbohydrates": 14.7,
+        "fat": 0.5,
+        "fiber": 3.0,
+        "sugar": 9.0,
+        "sodium": 0.003,
+        "cholesterol": 0
+      },
+      "ingredients": ["kiwi"]
+    },
+    {
+      "barcode": "4665",
+      "name": "Organic Spinach",
+      "brand": "Local Produce",
+      "category": "Vegetables",
+      "nutritionalData": {
+        "calories": 23,
+        "protein": 2.9,
+        "carbohydrates": 3.6,
+        "fat": 0.4,
+        "fiber": 2.2,
+        "sugar": 0.4,
+        "sodium": 0.079,
+        "cholesterol": 0
+      },
+      "ingredients": ["organic spinach"]
+    },
+    {
+      "barcode": "4087",
+      "name": "Broccoli",
+      "brand": "Local Produce",
+      "category": "Vegetables",
+      "nutritionalData": {
+        "calories": 34,
+        "protein": 2.8,
+        "carbohydrates": 6.6,
+        "fat": 0.4,
+        "fiber": 2.6,
+        "sugar": 1.7,
+        "sodium": 0.033,
+        "cholesterol": 0
+      },
+      "ingredients": ["broccoli"]
+    },
+    {
+      "barcode": "4062",
+      "name": "Cucumber",
+      "brand": "Local Produce",
+      "category": "Vegetables",
+      "nutritionalData": {
+        "calories": 16,
+        "protein": 0.7,
+        "carbohydrates": 3.6,
+        "fat": 0.1,
+        "fiber": 0.5,
+        "sugar": 1.7,
+        "sodium": 0.002,
+        "cholesterol": 0
+      },
+      "ingredients": ["cucumber"]
+    },
+    {
+      "barcode": "4664",
+      "name": "Organic Kale",
+      "brand": "Local Produce",
+      "category": "Vegetables",
+      "nutritionalData": {
+        "calories": 49,
+        "protein": 4.3,
+        "carbohydrates": 8.8,
+        "fat": 0.9,
+        "fiber": 3.6,
+        "sugar": 2.3,
+        "sodium": 0.038,
+        "cholesterol": 0
+      },
+      "ingredients": ["organic kale"]
+    },
+    {
+      "barcode": "4688",
+      "name": "Organic Tomatoes",
+      "brand": "Local Produce",
+      "category": "Vegetables",
+      "nutritionalData": {
+        "calories": 18,
+        "protein": 0.9,
+        "carbohydrates": 3.9,
+        "fat": 0.2,
+        "fiber": 1.2,
+        "sugar": 2.6,
+        "sodium": 0.005,
+        "cholesterol": 0
+      },
+      "ingredients": ["organic tomatoes"]
+    },
+    {
+      "barcode": "4048",
+      "name": "Lime",
+      "brand": "Local Produce",
+      "category": "Fruits",
+      "nutritionalData": {
+        "calories": 30,
+        "protein": 0.7,
+        "carbohydrates": 10.5,
+        "fat": 0.2,
+        "fiber": 2.8,
+        "sugar": 1.7,
+        "sodium": 0.002,
+        "cholesterol": 0
+      },
+      "ingredients": ["lime"]
+    },
+    {
+      "barcode": "4053",
+      "name": "Lemon",
+      "brand": "Local Produce",
+      "category": "Fruits",
+      "nutritionalData": {
+        "calories": 29,
+        "protein": 1.1,
+        "carbohydrates": 9.3,
+        "fat": 0.3,
+        "fiber": 2.8,
+        "sugar": 2.5,
+        "sodium": 0.002,
+        "cholesterol": 0
+      },
+      "ingredients": ["lemon"]
+    },
+    {
+      "barcode": "4663",
+      "name": "Organic Carrots",
+      "brand": "Local Produce",
+      "category": "Vegetables",
+      "nutritionalData": {
+        "calories": 41,
+        "protein": 0.9,
+        "carbohydrates": 9.6,
+        "fat": 0.2,
+        "fiber": 2.8,
+        "sugar": 4.7,
+        "sodium": 0.069,
+        "cholesterol": 0
+      },
+      "ingredients": ["organic carrots"]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "healthFocusWeights": {
+    "gut_health": {
+      "macronutrientBalance": 0.2,
+      "micronutrientDensity": 0.15,
+      "processingLevel": 0.25,
+      "ingredientQuality": 0.25,
+      "additives": 0.15
+    },
+    "weight_loss": {
+      "macronutrientBalance": 0.3,
+      "micronutrientDensity": 0.2,
+      "processingLevel": 0.2,
+      "ingredientQuality": 0.15,
+      "additives": 0.15
+    },
+    "protein_focus": {
+      "macronutrientBalance": 0.4,
+      "micronutrientDensity": 0.15,
+      "processingLevel": 0.15,
+      "ingredientQuality": 0.15,
+      "additives": 0.15
+    },
+    "general_wellness": {
+      "macronutrientBalance": 0.25,
+      "micronutrientDensity": 0.2,
+      "processingLevel": 0.2,
+      "ingredientQuality": 0.2,
+      "additives": 0.15
+    },
+    "heart_health": {
+      "macronutrientBalance": 0.35,
+      "micronutrientDensity": 0.2,
+      "processingLevel": 0.15,
+      "ingredientQuality": 0.2,
+      "additives": 0.1
+    }
+  },
+  "macronutrientThresholds": {
+    "protein": {
+      "excellent": 20,
+      "good": 10,
+      "fair": 5,
+      "poor": 0
+    },
+    "fiber": {
+      "excellent": 6,
+      "good": 3,
+      "fair": 1,
+      "poor": 0
+    },
+    "sugar": {
+      "excellent": 5,
+      "good": 10,
+      "fair": 15,
+      "poor": 100
+    },
+    "sodium": {
+      "excellent": 0.3,
+      "good": 0.6,
+      "fair": 1.2,
+      "poor": 10
+    },
+    "saturatedFat": {
+      "excellent": 2,
+      "good": 5,
+      "fair": 8,
+      "poor": 100
+    }
+  },
+  "processingLevelScores": {
+    "1": 100,
+    "2": 80,
+    "3": 60,
+    "4": 30
+  },
+  "harmfulAdditives": [
+    "monosodium glutamate",
+    "high fructose corn syrup",
+    "artificial colors",
+    "artificial flavors",
+    "sodium nitrate",
+    "sodium nitrite",
+    "trans fat",
+    "hydrogenated oil",
+    "partially hydrogenated oil",
+    "aspartame",
+    "acesulfame potassium",
+    "sodium benzoate",
+    "potassium benzoate",
+    "bha",
+    "bht",
+    "tbhq"
+  ],
+  "beneficialIngredients": [
+    "organic",
+    "whole grain",
+    "probiotics",
+    "fiber",
+    "omega-3",
+    "antioxidants",
+    "vitamin",
+    "mineral",
+    "natural",
+    "sprouted",
+    "fermented",
+    "valerian root",
+    "chamomile",
+    "passionflower",
+    "lemon balm leaf",
+    "lemon balm",
+    "peppermint leaf",
+    "peppermint",
+    "caraway fruit",
+    "caraway",
+    "licorice root",
+    "licorice"
+  ],
+  "dietaryViolations": {
+    "vegan": [
+      "milk", "cheese", "butter", "cream", "yogurt", "whey", "casein",
+      "meat", "beef", "pork", "chicken", "turkey", "fish", "seafood",
+      "eggs", "honey", "gelatin", "lard", "tallow"
+    ],
+    "vegetarian": [
+      "meat", "beef", "pork", "chicken", "turkey", "fish", "seafood",
+      "gelatin", "lard", "tallow", "chicken broth", "beef broth"
+    ],
+    "gluten_free": [
+      "wheat", "barley", "rye", "oats", "gluten", "flour",
+      "bread crumbs", "malt", "brewer's yeast"
+    ],
+    "dairy_free": [
+      "milk", "cheese", "butter", "cream", "yogurt", "whey", "casein",
+      "lactose", "dairy"
+    ],
+    "nut_free": [
+      "peanuts", "tree nuts", "almonds", "walnuts", "cashews",
+      "pistachios", "hazelnuts", "pecans", "brazil nuts",
+      "macadamia nuts", "pine nuts"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>InstacartClientID</key>
+    <string>YOUR_INSTACART_CLIENT_ID</string>
+    <key>InstacartClientSecret</key>
+    <string>YOUR_INSTACART_CLIENT_SECRET</string>
+    <key>InstacartRedirectURI</key>
+    <string>mira8://instacart-callback</string>
+    <key>AmazonAssociateTag</key>
+    <string>yourtag-20</string>
+</dict>
+</plist>
