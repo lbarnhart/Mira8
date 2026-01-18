@@ -1,0 +1,236 @@
+{
+  "metadata": {
+    "id": "lexicon_additives",
+    "version": "1.1.1",
+    "description": "Normalized additive lexicon used by the scoring pipeline.",
+    "released_at": "2024-03-14",
+    "checksum": "sha256:d7c8f5d7717462bfbc9ac61b6f262b875e9bb76d3f3b74b9c21094f0c2c6af3e"
+  },
+  "entries": [
+    {
+      "id": "lexicon:additive:artificial_flavors",
+      "display_name": "Artificial Flavors",
+      "aliases": ["artificial flavor", "artificial flavors"],
+      "category": "concerning",
+      "risk_level": "elevated",
+      "tags": ["synthetic", "flavoring", "flavor"],
+      "notes": "Synthetic flavoring system flagged for limited use; contributes to negative scoring modifiers.",
+      "references": [
+        {
+          "label": "CSPI Additive Guide",
+          "url": "https://www.cspinet.org/chemical-safety/food-additive-categories"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:artificial_colors",
+      "display_name": "Artificial Colors",
+      "aliases": ["artificial color", "artificial colors", "red 40", "yellow 5"],
+      "category": "concerning",
+      "risk_level": "elevated",
+      "tags": ["synthetic", "colorant", "color"],
+      "notes": "Includes FD&C dyes that Mira highlights as concerning for sensitive populations.",
+      "references": [
+        {
+          "label": "AHA Dietary Guidance (2023)",
+          "url": "https://www.heart.org"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:tocopherols",
+      "display_name": "Vitamin E (Tocopherols)",
+      "aliases": ["tocopherol", "mixed tocopherols"],
+      "category": "beneficial",
+      "risk_level": "supportive",
+      "tags": ["antioxidant"],
+      "notes": "Fat-soluble antioxidant retained as a positive contextual ingredient.",
+      "references": [
+        {
+          "label": "NIH Fact Sheet",
+          "url": "https://ods.od.nih.gov/factsheets/VitaminE-Consumer/"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:ascorbic_acid",
+      "display_name": "Vitamin C (Ascorbic Acid)",
+      "aliases": ["ascorbic acid", "l-ascorbic acid"],
+      "category": "beneficial",
+      "risk_level": "supportive",
+      "tags": ["vitamin", "antioxidant"],
+      "notes": "Essential nutrient retained when present as a preservative or fortification.",
+      "references": [
+        {
+          "label": "FDA GRAS Notice",
+          "url": "https://www.fda.gov/food/gras-notice-inventory"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:citric_acid",
+      "display_name": "Citric Acid",
+      "aliases": ["citric acid"],
+      "category": "neutral",
+      "risk_level": "expected",
+      "tags": ["acidulant"],
+      "notes": "Common acidulant used for tartness and shelf stability; neutral impact.",
+      "references": [
+        {
+          "label": "EFSA Opinion",
+          "url": "https://www.efsa.europa.eu/en/opinions"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:xanthan_gum",
+      "display_name": "Xanthan Gum",
+      "aliases": ["xanthan gum"],
+      "category": "neutral",
+      "risk_level": "expected",
+      "tags": ["stabilizer", "thickener"],
+      "notes": "Polysaccharide thickener that Mira treats as neutral unless paired with concerning ingredients.",
+      "references": [
+        {
+          "label": "Codex Alimentarius",
+          "url": "https://www.fao.org/fao-who-codexalimentarius"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:refined_canola_oil",
+      "display_name": "Refined Canola Oil",
+      "aliases": ["canola oil", "refined canola oil"],
+      "category": "neutral",
+      "risk_level": "expected",
+      "tags": ["refined_oil", "base"],
+      "notes": "Refined seed oil noted for its processing; flagged for refined oil heuristic.",
+      "references": [
+        {
+          "label": "USDA Oil Processing Overview",
+          "url": "https://www.usda.gov"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:refined_soybean_oil",
+      "display_name": "Refined Soybean Oil",
+      "aliases": ["soybean oil", "refined soybean oil"],
+      "category": "neutral",
+      "risk_level": "expected",
+      "tags": ["refined_oil", "base"],
+      "notes": "Highly processed cooking oil; used as refined oil signal in scoring.",
+      "references": [
+        {
+          "label": "FAO Fats and Oils Report",
+          "url": "https://www.fao.org"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:palm_oil",
+      "display_name": "Palm Oil",
+      "aliases": ["palm oil", "refined palm oil"],
+      "category": "concerning",
+      "risk_level": "expected",
+      "tags": ["refined_oil", "saturated"],
+      "notes": "Refined palm oil associated with saturated fat load; flagged for refined oil checks.",
+      "references": [
+        {
+          "label": "WHO saturated fat guidance",
+          "url": "https://www.who.int"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:sunflower_oil",
+      "display_name": "Sunflower Oil",
+      "aliases": ["sunflower oil", "refined sunflower oil"],
+      "category": "neutral",
+      "risk_level": "expected",
+      "tags": ["refined_oil", "base"],
+      "notes": "Common refined oil identified for refined-oil heuristics.",
+      "references": [
+        {
+          "label": "EFSA sunflower oil dossier",
+          "url": "https://www.efsa.europa.eu/en/opinions"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:sucralose",
+      "display_name": "Sucralose",
+      "aliases": ["sucralose"],
+      "category": "concerning",
+      "risk_level": "elevated",
+      "tags": ["nns", "sweetener"],
+      "notes": "Non-nutritive sweetener flagged for beverage and dessert heuristics.",
+      "references": [
+        {
+          "label": "AHA NNS Guidance",
+          "url": "https://www.heart.org"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:acesulfame_potassium",
+      "display_name": "Acesulfame Potassium",
+      "aliases": ["acesulfame potassium", "acesulfame-k", "ace-k"],
+      "category": "concerning",
+      "risk_level": "elevated",
+      "tags": ["nns", "sweetener"],
+      "notes": "Non-nutritive sweetener used in beverages; flagged for NNS detection.",
+      "references": [
+        {
+          "label": "EFSA NNS Opinion",
+          "url": "https://www.efsa.europa.eu/en/opinions"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:stevia_extract",
+      "display_name": "Stevia Extract",
+      "aliases": ["stevia", "steviol glycosides"],
+      "category": "neutral",
+      "risk_level": "supportive",
+      "tags": ["nns", "sweetener", "natural"],
+      "notes": "Plant-derived non-nutritive sweetener; treated distinctly from artificial NNS.",
+      "references": [
+        {
+          "label": "FDA GRAS Stevia",
+          "url": "https://www.fda.gov"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:maltodextrin",
+      "display_name": "Maltodextrin",
+      "aliases": ["maltodextrin"],
+      "category": "concerning",
+      "risk_level": "expected",
+      "tags": ["ultra_processed_marker", "refined_carbohydrate"],
+      "notes": "Refined starch derivative associated with ultra-processed formulations.",
+      "references": [
+        {
+          "label": "NOVA Ultra-Processed Indicators",
+          "url": "https://www.fao.org"
+        }
+      ]
+    },
+    {
+      "id": "lexicon:additive:modified_corn_starch",
+      "display_name": "Modified Corn Starch",
+      "aliases": ["modified corn starch", "modified food starch"],
+      "category": "concerning",
+      "risk_level": "expected",
+      "tags": ["ultra_processed_marker", "starch"],
+      "notes": "Indicator of heavy processing; used for ultra-processed detection.",
+      "references": [
+        {
+          "label": "NOVA Ultra-Processed Indicators",
+          "url": "https://www.fao.org"
+        }
+      ]
+    }
+  ]
+}

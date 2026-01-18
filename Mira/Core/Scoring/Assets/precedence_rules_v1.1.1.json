@@ -1,0 +1,74 @@
+{
+  "metadata": {
+    "id": "precedence_rules",
+    "version": "1.1.1",
+    "description": "Ordering rules for scoring phases and overrides.",
+    "released_at": "2024-03-14",
+    "checksum": "sha256:5f2ab61ab8ee44466fd038dea4186bb4933f1a4ee97751dee7b9ac434052a906"
+  },
+  "rules": [
+    {
+      "id": "scoring.pipeline",
+      "domain": "health_score",
+      "description": "Execution order for the health scoring pipeline.",
+      "stages": [
+        {
+          "sequence": 1,
+          "id": "pipeline.normalize_input",
+          "label": "Normalize nutrition input",
+          "outputs": ["normalized_input"],
+          "notes": "Convert nutrition data to per-100g values, infer availability, and calculate fruit/veg estimates."
+        },
+        {
+          "sequence": 2,
+          "id": "pipeline.evaluate_pillars",
+          "label": "Evaluate pillar contributions",
+          "outputs": ["pillar_evaluation"],
+          "notes": "Apply nutrient thresholds to compute raw and weighted points for positive and negative factors."
+        },
+        {
+          "sequence": 3,
+          "id": "pipeline.apply_guardrails",
+          "label": "Apply guardrail constraints",
+          "outputs": ["guardrail_outcome"],
+          "notes": "Clamp scores to confidence bands and derive warnings based on missing nutrients."
+        },
+        {
+          "sequence": 4,
+          "id": "pipeline.map_tier",
+          "label": "Map to tiers",
+          "outputs": ["health_score"],
+          "notes": "Translate normalized score and guardrail outcome into display-ready score and narrative."
+        }
+      ]
+    },
+    {
+      "id": "scoring.tie_breakers",
+      "domain": "health_score",
+      "description": "Deterministic tie-breakers for ranking comparable products.",
+      "stages": [
+        {
+          "sequence": 1,
+          "id": "tiebreaker.high_confidence",
+          "label": "Prefer higher confidence",
+          "outputs": ["confidence"],
+          "notes": "Higher confidence scores outrank lower confidence when overall score is equal."
+        },
+        {
+          "sequence": 2,
+          "id": "tiebreaker.higher_positive_points",
+          "label": "Prefer higher positive contribution",
+          "outputs": ["weighted_positive_points"],
+          "notes": "If confidence is tied, compare weighted positive contributions."
+        },
+        {
+          "sequence": 3,
+          "id": "tiebreaker.lower_negative_points",
+          "label": "Prefer lower penalties",
+          "outputs": ["weighted_negative_points"],
+          "notes": "As a final tie-breaker, promote products with fewer negative penalties."
+        }
+      ]
+    }
+  ]
+}

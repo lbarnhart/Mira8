@@ -1,0 +1,163 @@
+{
+  "metadata": {
+    "id": "thresholds",
+    "version": "1.1.1",
+    "description": "Baseline thresholds and weights for scoring contributions.",
+    "released_at": "2024-03-14",
+    "checksum": "sha256:6f0b96f27604d8a242e34d5bfb1afc38a2bd2b43b37cf2f2c7f0cf0f4d505d1a"
+  },
+  "thresholds": [
+    {
+      "id": "negative.energy_density",
+      "kind": "negative",
+      "label": "Energy density",
+      "nutrient": "energy",
+      "unit": "kJ",
+      "baseline": 335.0,
+      "step": 335.0,
+      "max_points": 10,
+      "weight": 1.5,
+      "guideline": "WHO encourages limiting energy-dense packaged foods to reduce excess calorie intake.",
+      "citations": [
+        "WHO. Guideline: Policies to protect children from the harmful impact of food marketing. 2023."
+      ],
+      "contexts": []
+    },
+    {
+      "id": "negative.total_sugars",
+      "kind": "negative",
+      "label": "Total sugars",
+      "nutrient": "sugars",
+      "unit": "g",
+      "baseline": 4.5,
+      "step": 4.5,
+      "max_points": 15,
+      "weight": 3.0,
+      "guideline": "WHO guidance: keep free sugars below 10% of daily energy intake.",
+      "citations": [
+        "WHO. Guideline: Sugars intake for adults and children. 2015."
+      ],
+      "contexts": [
+        {
+          "id": "beverage",
+          "label": "Beverage threshold",
+          "baseline": 2.25,
+          "step": 2.25,
+          "max_points": 15,
+          "weight": 3.0,
+          "notes": "Applied when beverage heuristics classify the product as a drink."
+        }
+      ]
+    },
+    {
+      "id": "negative.saturated_fat",
+      "kind": "negative",
+      "label": "Saturated fat",
+      "nutrient": "saturated_fat",
+      "unit": "g",
+      "baseline": 1.0,
+      "step": 1.0,
+      "max_points": 15,
+      "weight": 2.5,
+      "guideline": "AHA recommends limiting saturated fat to under 6% of daily calories.",
+      "citations": [
+        "AHA. 2021 Dietary Guidance to Improve Cardiovascular Health."
+      ],
+      "contexts": []
+    },
+    {
+      "id": "negative.sodium",
+      "kind": "negative",
+      "label": "Sodium",
+      "nutrient": "sodium",
+      "unit": "mg",
+      "baseline": 90.0,
+      "step": 90.0,
+      "max_points": 20,
+      "weight": 2.0,
+      "guideline": "US Dietary Guidelines cap sodium at 2300 mg/day (~460 mg per meal).",
+      "citations": [
+        "USDA. Dietary Guidelines for Americans 2020-2025."
+      ],
+      "contexts": [
+        {
+          "id": "beverage",
+          "label": "Beverage threshold",
+          "baseline": 45.0,
+          "step": 45.0,
+          "max_points": 20,
+          "weight": 2.0,
+          "notes": "Drinks are penalized sooner due to typically lower sodium baselines."
+        }
+      ]
+    },
+    {
+      "id": "positive.fruit_veg",
+      "kind": "positive",
+      "label": "Fruits/veg/legumes/nuts",
+      "nutrient": "fruit_veg",
+      "unit": "%",
+      "baseline": 40.0,
+      "step": 7.5,
+      "max_points": 20,
+      "weight": 4.5,
+      "guideline": "Modeled after Nutri-Score produce thresholds for healthy additions.",
+      "citations": [
+        "Santé Publique France. Nutri-Score Scientific Update. 2022."
+      ],
+      "contexts": []
+    },
+    {
+      "id": "positive.fiber",
+      "kind": "positive",
+      "label": "Dietary fiber",
+      "nutrient": "fiber",
+      "unit": "g",
+      "baseline": 0.9,
+      "step": 0.9,
+      "max_points": 10,
+      "weight": 3.0,
+      "guideline": "Adults should average ~28 g of fiber per day; encourages >1 g per 100 g.",
+      "citations": [
+        "FDA. Dietary Reference Intakes for Fiber. 2018."
+      ],
+      "contexts": [
+        {
+          "id": "beverage",
+          "label": "Beverage threshold",
+          "baseline": 0.45,
+          "step": 0.45,
+          "max_points": 10,
+          "weight": 3.0,
+          "notes": "Smoothies and fortified drinks are rewarded at half-step increments."
+        }
+      ]
+    },
+    {
+      "id": "positive.protein",
+      "kind": "positive",
+      "label": "Protein",
+      "nutrient": "protein",
+      "unit": "g",
+      "baseline": 1.6,
+      "step": 1.6,
+      "max_points": 10,
+      "weight": 2.0,
+      "guideline": "Aligns with EFSA protein density guidance for satiety support.",
+      "citations": [
+        "EFSA. Dietary Reference Values for protein. 2023."
+      ],
+      "contexts": [
+        {
+          "id": "hydration_bonus",
+          "label": "Hydrating beverage floor",
+          "baseline": 1.6,
+          "step": 1.6,
+          "max_points": 10,
+          "weight": 2.0,
+          "notes": "Hydration guardrail enforces a minimum 5-point bonus when energy and sugar are low."
+        }
+      ]
+    }
+  ]
+}

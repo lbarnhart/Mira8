@@ -1,0 +1,61 @@
+{
+  "metadata": {
+    "id": "conversion_table",
+    "version": "1.1.1",
+    "description": "Canonical unit conversions used across scoring." ,
+    "released_at": "2024-03-14",
+    "checksum": "sha256:2290bc94573af1e8fa0d2e3f6599ad9200ee5d625a6f626eab7a806a5f695809"
+  },
+  "conversions": [
+    {
+      "id": "conversion:energy:kcal_to_kj",
+      "from_unit": "kcal",
+      "to_unit": "kJ",
+      "factor": 4.184,
+      "offset": 0.0,
+      "precision": 3,
+      "applies_to": ["energy", "calories"],
+      "notes": "WHO constant used to translate kcal to kJ for per-100g energy density calculations."
+    },
+    {
+      "id": "conversion:mass:g_to_mg",
+      "from_unit": "g",
+      "to_unit": "mg",
+      "factor": 1000.0,
+      "offset": 0.0,
+      "precision": 0,
+      "applies_to": ["sodium", "micronutrients"],
+      "notes": "Base multiplier for mapping label data captured in grams to milligrams."
+    },
+    {
+      "id": "conversion:mass:mg_to_g",
+      "from_unit": "mg",
+      "to_unit": "g",
+      "factor": 0.001,
+      "offset": 0.0,
+      "precision": 3,
+      "applies_to": ["sodium", "micronutrients"],
+      "notes": "Inverted mapping used when decoding additive or micronutrient tables."
+    },
+    {
+      "id": "conversion:volume:ml_to_l",
+      "from_unit": "ml",
+      "to_unit": "l",
+      "factor": 0.001,
+      "offset": 0.0,
+      "precision": 3,
+      "applies_to": ["beverage_serving"],
+      "notes": "Used by beverage normalization when only milliliter servings are declared."
+    },
+    {
+      "id": "conversion:serving:per_serving_to_per_100g",
+      "from_unit": "serving",
+      "to_unit": "per_100g",
+      "factor": 100.0,
+      "offset": 0.0,
+      "precision": 2,
+      "applies_to": ["nutrition_panels"],
+      "notes": "Assumes nutrition facts expressed per serving in grams; 100/serving_size normalization pipeline uses this factor."
+    }
+  ]
+}
