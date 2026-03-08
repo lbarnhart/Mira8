@@ -432,6 +432,7 @@ struct ComparisonPageView: View {
                 let dietaryRestrictions = appState.dietaryRestrictions.compactMap { DietaryRestriction(rawValue: $0) }
                 let score = ScoringEngine.shared.calculateHealthScore(
                     for: productModel,
+                    healthFocus: HealthFocus(rawValue: appState.healthFocus) ?? .generalWellness,
                     dietaryRestrictions: dietaryRestrictions
                 )
                 
@@ -617,9 +618,10 @@ struct HistorySelectionView: View {
         let dietaryRestrictions = appState.dietaryRestrictions.compactMap { DietaryRestriction(rawValue: $0) }
         let score = ScoringEngine.shared.calculateHealthScore(
             for: productModel,
+            healthFocus: HealthFocus(rawValue: appState.healthFocus) ?? .generalWellness,
             dietaryRestrictions: dietaryRestrictions
         )
-        
+
         // First, ensure the current product is set as the first product
         if viewModel.firstProduct == nil {
             viewModel.startComparison(product: currentProduct, score: currentScore)

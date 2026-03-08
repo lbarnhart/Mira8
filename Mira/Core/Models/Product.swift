@@ -21,6 +21,7 @@ struct APIProduct: Codable, Identifiable {
     let source: ProductSource
     let countriesTags: [String]?
     let processingLevel: ProcessingLevel?
+    let nutriScore: String?
 
     init(
         id: String,
@@ -39,7 +40,8 @@ struct APIProduct: Codable, Identifiable {
         thumbnailURL: String? = nil,
         source: ProductSource,
         countriesTags: [String]? = nil,
-        processingLevel: ProcessingLevel? = nil
+        processingLevel: ProcessingLevel? = nil,
+        nutriScore: String? = nil
     ) {
         self.id = id
         self.barcode = barcode
@@ -58,6 +60,7 @@ struct APIProduct: Codable, Identifiable {
         self.source = source
         self.countriesTags = countriesTags
         self.processingLevel = processingLevel
+        self.nutriScore = nutriScore
     }
 }
 
@@ -67,64 +70,88 @@ struct NutritionalData: Codable {
     var protein: Double
     var carbohydrates: Double
     var fat: Double
+    var saturatedFat: Double
     var fiber: Double
     var sugar: Double
     var sodium: Double
     var cholesterol: Double
+
+    // Micronutrients (optional)
+    var vitaminA: Double?
+    var vitaminC: Double?
+    var vitaminD: Double?
+    var vitaminE: Double?
+    var vitaminK: Double?
+    var thiamin: Double?
+    var riboflavin: Double?
+    var niacin: Double?
+    var vitaminB6: Double?
+    var folate: Double?
+    var vitaminB12: Double?
+    var calcium: Double?
+    var iron: Double?
+    var magnesium: Double?
+    var phosphorus: Double?
+    var potassium: Double?
+    var zinc: Double?
+    var availability: DataAvailability?
 
     init(
         calories: Double = 0,
         protein: Double = 0,
         carbohydrates: Double = 0,
         fat: Double = 0,
+        saturatedFat: Double = 0,
         fiber: Double = 0,
         sugar: Double = 0,
         sodium: Double = 0,
-        cholesterol: Double = 0
+        cholesterol: Double = 0,
+        vitaminA: Double? = nil,
+        vitaminC: Double? = nil,
+        vitaminD: Double? = nil,
+        vitaminE: Double? = nil,
+        vitaminK: Double? = nil,
+        thiamin: Double? = nil,
+        riboflavin: Double? = nil,
+        niacin: Double? = nil,
+        vitaminB6: Double? = nil,
+        folate: Double? = nil,
+        vitaminB12: Double? = nil,
+        calcium: Double? = nil,
+        iron: Double? = nil,
+        magnesium: Double? = nil,
+        phosphorus: Double? = nil,
+        potassium: Double? = nil,
+        zinc: Double? = nil,
+        availability: DataAvailability? = nil
     ) {
         self.calories = calories
         self.protein = protein
         self.carbohydrates = carbohydrates
         self.fat = fat
+        self.saturatedFat = saturatedFat
         self.fiber = fiber
         self.sugar = sugar
         self.sodium = sodium
         self.cholesterol = cholesterol
-    }
-
-    enum CodingKeys: String, CodingKey {
-        case calories
-        case protein
-        case carbohydrates
-        case fat
-        case fiber
-        case sugar
-        case sodium
-        case cholesterol
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        calories = try container.decodeIfPresent(Double.self, forKey: .calories) ?? 0
-        protein = try container.decodeIfPresent(Double.self, forKey: .protein) ?? 0
-        carbohydrates = try container.decodeIfPresent(Double.self, forKey: .carbohydrates) ?? 0
-        fat = try container.decodeIfPresent(Double.self, forKey: .fat) ?? 0
-        fiber = try container.decodeIfPresent(Double.self, forKey: .fiber) ?? 0
-        sugar = try container.decodeIfPresent(Double.self, forKey: .sugar) ?? 0
-        sodium = try container.decodeIfPresent(Double.self, forKey: .sodium) ?? 0
-        cholesterol = try container.decodeIfPresent(Double.self, forKey: .cholesterol) ?? 0
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(calories, forKey: .calories)
-        try container.encode(protein, forKey: .protein)
-        try container.encode(carbohydrates, forKey: .carbohydrates)
-        try container.encode(fat, forKey: .fat)
-        try container.encode(fiber, forKey: .fiber)
-        try container.encode(sugar, forKey: .sugar)
-        try container.encode(sodium, forKey: .sodium)
-        try container.encode(cholesterol, forKey: .cholesterol)
+        self.vitaminA = vitaminA
+        self.vitaminC = vitaminC
+        self.vitaminD = vitaminD
+        self.vitaminE = vitaminE
+        self.vitaminK = vitaminK
+        self.thiamin = thiamin
+        self.riboflavin = riboflavin
+        self.niacin = niacin
+        self.vitaminB6 = vitaminB6
+        self.folate = folate
+        self.vitaminB12 = vitaminB12
+        self.calcium = calcium
+        self.iron = iron
+        self.magnesium = magnesium
+        self.phosphorus = phosphorus
+        self.potassium = potassium
+        self.zinc = zinc
+        self.availability = availability
     }
 }
 
@@ -148,6 +175,15 @@ struct ProductModel: Identifiable, Codable {
     var updatedAt: Date
     var isCached: Bool
     var rawIngredientsText: String?
+    var nutriScore: String?
+    var fruitVegEstimate: FruitVegEstimate = .unknown
+
+    /// Determine if product is likely a beverage based on category
+    var isLikelyBeverage: Bool {
+        guard let categorySlug = categorySlug?.lowercased() else { return false }
+        let beverageKeywords = ["beverage", "drink", "juice", "soda", "water", "tea", "coffee", "milk", "smoothie"]
+        return beverageKeywords.contains { categorySlug.contains($0) }
+    }
 }
 
 struct ProductNutrition: Codable {
@@ -155,11 +191,14 @@ struct ProductNutrition: Codable {
     var protein: Double
     var carbohydrates: Double
     var fat: Double
+    var saturatedFat: Double
     var fiber: Double
     var sugar: Double
     var sodium: Double
     var cholesterol: Double
     var servingSize: String
+    var labelServingSize: String?
+    var availability: DataAvailability?
 
     // Micronutrients (optional, may not be available for all products)
     var vitaminA: Double?      // mcg
@@ -185,11 +224,13 @@ struct ProductNutrition: Codable {
         protein: Double = 0,
         carbohydrates: Double = 0,
         fat: Double = 0,
+        saturatedFat: Double = 0,
         fiber: Double = 0,
         sugar: Double = 0,
         sodium: Double = 0,
         cholesterol: Double = 0,
         servingSize: String = "100g",
+        labelServingSize: String? = nil,
         vitaminA: Double? = nil,
         vitaminC: Double? = nil,
         vitaminD: Double? = nil,
@@ -206,17 +247,20 @@ struct ProductNutrition: Codable {
         magnesium: Double? = nil,
         phosphorus: Double? = nil,
         potassium: Double? = nil,
-        zinc: Double? = nil
+        zinc: Double? = nil,
+        availability: DataAvailability? = nil
     ) {
         self.calories = calories
         self.protein = protein
         self.carbohydrates = carbohydrates
         self.fat = fat
+        self.saturatedFat = saturatedFat
         self.fiber = fiber
         self.sugar = sugar
         self.sodium = sodium
         self.cholesterol = cholesterol
         self.servingSize = servingSize
+        self.labelServingSize = labelServingSize
         self.vitaminA = vitaminA
         self.vitaminC = vitaminC
         self.vitaminD = vitaminD
@@ -234,6 +278,7 @@ struct ProductNutrition: Codable {
         self.phosphorus = phosphorus
         self.potassium = potassium
         self.zinc = zinc
+        self.availability = availability
     }
 
     enum CodingKeys: String, CodingKey {
@@ -241,11 +286,14 @@ struct ProductNutrition: Codable {
         case protein
         case carbohydrates
         case fat
+        case saturatedFat
         case fiber
         case sugar
         case sodium
         case cholesterol
         case servingSize
+        case labelServingSize
+        case availability
         case vitaminA
         case vitaminC
         case vitaminD
@@ -271,11 +319,14 @@ struct ProductNutrition: Codable {
         protein = try container.decodeIfPresent(Double.self, forKey: .protein) ?? 0
         carbohydrates = try container.decodeIfPresent(Double.self, forKey: .carbohydrates) ?? 0
         fat = try container.decodeIfPresent(Double.self, forKey: .fat) ?? 0
+        saturatedFat = try container.decodeIfPresent(Double.self, forKey: .saturatedFat) ?? 0
         fiber = try container.decodeIfPresent(Double.self, forKey: .fiber) ?? 0
         sugar = try container.decodeIfPresent(Double.self, forKey: .sugar) ?? 0
         sodium = try container.decodeIfPresent(Double.self, forKey: .sodium) ?? 0
         cholesterol = try container.decodeIfPresent(Double.self, forKey: .cholesterol) ?? 0
         servingSize = try container.decodeIfPresent(String.self, forKey: .servingSize) ?? "100g"
+        labelServingSize = try container.decodeIfPresent(String.self, forKey: .labelServingSize)
+        availability = try container.decodeIfPresent(DataAvailability.self, forKey: .availability)
         vitaminA = try container.decodeIfPresent(Double.self, forKey: .vitaminA)
         vitaminC = try container.decodeIfPresent(Double.self, forKey: .vitaminC)
         vitaminD = try container.decodeIfPresent(Double.self, forKey: .vitaminD)
@@ -301,11 +352,14 @@ struct ProductNutrition: Codable {
         try container.encode(protein, forKey: .protein)
         try container.encode(carbohydrates, forKey: .carbohydrates)
         try container.encode(fat, forKey: .fat)
+        try container.encode(saturatedFat, forKey: .saturatedFat)
         try container.encode(fiber, forKey: .fiber)
         try container.encode(sugar, forKey: .sugar)
         try container.encode(sodium, forKey: .sodium)
         try container.encode(cholesterol, forKey: .cholesterol)
         try container.encode(servingSize, forKey: .servingSize)
+        try container.encodeIfPresent(labelServingSize, forKey: .labelServingSize)
+        try container.encodeIfPresent(availability, forKey: .availability)
         try container.encodeIfPresent(vitaminA, forKey: .vitaminA)
         try container.encodeIfPresent(vitaminC, forKey: .vitaminC)
         try container.encodeIfPresent(vitaminD, forKey: .vitaminD)
@@ -323,6 +377,117 @@ struct ProductNutrition: Codable {
         try container.encodeIfPresent(phosphorus, forKey: .phosphorus)
         try container.encodeIfPresent(potassium, forKey: .potassium)
         try container.encodeIfPresent(zinc, forKey: .zinc)
+    }
+}
+
+/// Indicates what nutrition data is available for a product
+struct DataAvailability: Codable {
+    var hasMacros: Bool = false
+    var hasMicronutrients: Bool = false
+    var hasIngredients: Bool = false
+}
+
+// MARK: - Nutrient Availability (for scoring)
+
+/// OptionSet representing which nutrient data points are available
+struct NutrientAvailability: OptionSet, Codable {
+    let rawValue: Int
+
+    static let energy = NutrientAvailability(rawValue: 1 << 0)
+    static let sugar = NutrientAvailability(rawValue: 1 << 1)
+    static let saturatedFat = NutrientAvailability(rawValue: 1 << 2)
+    static let sodium = NutrientAvailability(rawValue: 1 << 3)
+    static let fiber = NutrientAvailability(rawValue: 1 << 4)
+    static let protein = NutrientAvailability(rawValue: 1 << 5)
+    static let fruitVeg = NutrientAvailability(rawValue: 1 << 6)
+
+    static let all: NutrientAvailability = [.energy, .sugar, .saturatedFat, .sodium, .fiber, .protein, .fruitVeg]
+}
+
+// MARK: - Fruit/Veg Estimation
+
+/// Estimation of fruit, vegetable, legume, and nut content
+struct FruitVegEstimate: Codable {
+    let percentage: Double?
+    let method: EstimationMethod
+
+    enum EstimationMethod: String, Codable {
+        case explicitPercentage
+        case singleIngredientProduce
+        case primaryIngredientHeuristic
+        case presenceHeuristic
+        case unknown
+    }
+
+    static var unknown: FruitVegEstimate {
+        FruitVegEstimate(percentage: nil, method: .unknown)
+    }
+}
+
+/// Service for estimating fruit/veg content from ingredients
+final class FruitVegLegumeNutEstimator {
+    static let shared = FruitVegLegumeNutEstimator()
+
+    private init() {}
+
+    func estimate(ingredients: [String], rawText: String?, categorySlug: String?) -> FruitVegEstimate {
+        // Check for single-ingredient produce
+        if ingredients.count == 1 {
+            let ingredient = ingredients[0].lowercased()
+            if isSingleIngredientProduce(ingredient) {
+                return FruitVegEstimate(percentage: 100, method: .singleIngredientProduce)
+            }
+        }
+
+        // Check for explicit percentage in raw text (e.g., "40% fruit")
+        if let rawText = rawText,
+           let percentage = extractExplicitPercentage(from: rawText) {
+            return FruitVegEstimate(percentage: percentage, method: .explicitPercentage)
+        }
+
+        // Heuristic based on primary ingredient
+        if let firstIngredient = ingredients.first?.lowercased(),
+           isProduceIngredient(firstIngredient) {
+            return FruitVegEstimate(percentage: 60, method: .primaryIngredientHeuristic)
+        }
+
+        // Heuristic based on presence of produce ingredients
+        let produceCount = ingredients.filter { isProduceIngredient($0.lowercased()) }.count
+        if produceCount > 0 {
+            let estimatedPercentage = min(Double(produceCount) * 15, 50)
+            return FruitVegEstimate(percentage: estimatedPercentage, method: .presenceHeuristic)
+        }
+
+        return .unknown
+    }
+
+    private func isSingleIngredientProduce(_ ingredient: String) -> Bool {
+        let produce = ["apple", "banana", "orange", "spinach", "broccoli", "carrot", "tomato",
+                       "potato", "onion", "garlic", "lemon", "lime", "avocado", "blueberry",
+                       "strawberry", "raspberry", "grape", "pear", "peach", "mango", "pineapple"]
+        return produce.contains(where: { ingredient.contains($0) })
+    }
+
+    private func isProduceIngredient(_ ingredient: String) -> Bool {
+        let produceTerms = ["fruit", "vegetable", "apple", "banana", "orange", "spinach",
+                           "broccoli", "carrot", "tomato", "potato", "onion", "garlic",
+                           "legume", "bean", "lentil", "chickpea", "nut", "almond", "walnut",
+                           "peanut", "cashew", "pecan", "pistachio"]
+        return produceTerms.contains(where: { ingredient.contains($0) })
+    }
+
+    private func extractExplicitPercentage(from text: String) -> Double? {
+        let pattern = "(\\d+(?:\\.\\d+)?)\\s*%\\s*(fruit|vegetable|veg|produce|legume|nut)"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+            return nil
+        }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        if let match = regex.firstMatch(in: text, options: [], range: range),
+           match.numberOfRanges > 1,
+           let matchRange = Range(match.range(at: 1), in: text) {
+            return Double(String(text[matchRange]))
+        }
+        return nil
     }
 }
 
@@ -346,6 +511,38 @@ enum HealthFocus: String, CaseIterable, Codable {
             return "Heart Health"
         case .generalWellness:
             return "General Wellness"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .gutHealth:
+            return "🦠"
+        case .weightLoss:
+            return "⚖️"
+        case .proteinFocus:
+            return "💪"
+        case .heartHealth:
+            return "🫀"
+        case .generalWellness:
+            return "✨"
+        }
+    }
+
+    /// Initialize from a stored string, handling both camelCase and snake_case formats.
+    /// Falls back to `.generalWellness` if the string doesn't match any known focus.
+    init(fromStored string: String) {
+        if let focus = HealthFocus(rawValue: string) {
+            self = focus
+            return
+        }
+        switch string {
+        case "gutHealth": self = .gutHealth
+        case "weightLoss": self = .weightLoss
+        case "proteinFocus": self = .proteinFocus
+        case "heartHealth": self = .heartHealth
+        case "generalWellness": self = .generalWellness
+        default: self = .generalWellness
         }
     }
 
@@ -392,6 +589,19 @@ enum DietaryRestriction: String, CaseIterable, Codable {
         case .sugarFree:
             return "Sugar-Free"
         }
+    }
+
+    /// Convert a Set of stored strings into an array of DietaryRestriction.
+    static func fromStrings(_ strings: Set<String>) -> [DietaryRestriction] {
+        strings.compactMap { DietaryRestriction(from: $0) }
+    }
+
+    /// Parse a comma-separated stored string into an array of DietaryRestriction.
+    static func fromCommaSeparated(_ stored: String?) -> [DietaryRestriction] {
+        guard let stored, !stored.isEmpty else { return [] }
+        return stored.split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .compactMap { DietaryRestriction(from: $0) }
     }
 }
 

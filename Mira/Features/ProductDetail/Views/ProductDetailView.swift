@@ -7,14 +7,110 @@ struct ProductDetailView: View {
     @StateObject private var viewModel = ProductDetailViewModel()
     @EnvironmentObject private var appState: AppState
     @State private var isFavorite = false
+    @State private var showFirstScanEducation = false
+    @State private var showScoreComparison = false
+    @StateObject private var shoppingListViewModel = ShoppingListViewModel()
+    @State private var showAddedToListConfirmation = false
+
+    private var showErrorBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.loading.showError },
+            set: { _ in viewModel.dismissError() }
+        )
+    }
 
     var body: some View {
+        mainContent
+            .navigationTitle("Product Details")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    HStack(spacing: Spacing.md) {
+                        // Add to Shopping List Button
+                        Button {
+                            addToShoppingList()
+                        } label: {
+                            Image(systemName: isInShoppingList ? "cart.fill" : "cart")
+                                .foregroundColor(isInShoppingList ? .scoreExcellent : .gray)
+                        }
+                        .accessibilityLabel(isInShoppingList ? "Remove from shopping list" : "Add to shopping list")
+                        .disabled(viewModel.productData.product == nil)
+
+                        // Favorite Button
+                        Button {
+                            toggleFavorite()
+                        } label: {
+                            Image(systemName: isFavorite ? "heart.fill" : "heart")
+                                .foregroundColor(isFavorite ? .red : .gray)
+                        }
+                        .accessibilityLabel(isFavorite ? "Remove from favorites" : "Add to favorites")
+                    }
+                }
+            }
+            .overlay(alignment: .bottom) {
+                // Confirmation Toast
+                if showAddedToListConfirmation {
+                    Text("Added to Shopping List")
+                        .font(.callout)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, Spacing.sm)
+                        .background(Color.scoreExcellent)
+                        .cornerRadius(CornerRadius.pill)
+                        .shadow(radius: 8)
+                        .padding(.bottom, Spacing.xl)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .accessibilityLabel("Product added to shopping list")
+                }
+            }
+        .onAppear {
+            loadFavoriteStatus()
+            viewModel.loadProduct(barcode: barcode)
+            viewModel.updateHealthFocus(HealthFocus(fromStored: appState.healthFocus))
+            viewModel.updateDietaryRestrictions(appState.dietaryRestrictions)
+            AppLog.debug("ProductDetailView appeared", category: .general)
+        }
+        .onChange(of: appState.healthFocus) { newFocus in
+            viewModel.updateHealthFocus(HealthFocus(fromStored: newFocus))
+        }
+        .onChange(of: appState.dietaryRestrictions) { newRestrictions in
+            viewModel.updateDietaryRestrictions(newRestrictions)
+        }
+        .alert("Error", isPresented: showErrorBinding) {
+            Button("OK") {
+                viewModel.dismissError()
+            }
+        } message: {
+            Text(viewModel.loading.errorMessage ?? "Unknown error occurred")
+        }
+        .sheet(isPresented: $showFirstScanEducation) {
+            firstScanEducationSheet
+        }
+        .sheet(isPresented: $showScoreComparison) {
+            scoreComparisonSheet
+        }
+        .onChange(of: viewModel.productData.healthScore?.overall) { score in
+            // Show first scan education if this is the first time
+            let hasSeenFirstScanEducation = UserDefaults.standard.bool(forKey: "hasSeenFirstScanEducation")
+            if !hasSeenFirstScanEducation, score != nil {
+                // Small delay to let the view settle
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    showFirstScanEducation = true
+                    UserDefaults.standard.set(true, forKey: "hasSeenFirstScanEducation")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
         ScrollView {
             VStack(spacing: 20) {
-                if viewModel.isLoading {
+                if viewModel.loading.isLoading {
                     LoadingViewWithMessage(message: "Analyzing product...")
                         .padding()
-                } else if let product = viewModel.product {
+                } else if let product = viewModel.productData.product {
                     productContent(product)
                 } else {
                     EmptyStateView(
@@ -29,329 +125,128 @@ struct ProductDetailView: View {
                 }
             }
         }
-        .navigationTitle("Product Details")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    toggleFavorite()
-                } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .foregroundColor(isFavorite ? .red : .gray)
-                }
-            }
-        }
-        .onAppear {
-            loadFavoriteStatus()
-            viewModel.loadProduct(barcode: barcode)
-            viewModel.updateHealthFocus(mapHealthFocus(appState.healthFocus))
-            viewModel.updateDietaryRestrictions(appState.dietaryRestrictions)
-            AppLog.debug("ProductDetailView appeared", category: .general)
-        }
-        .onChange(of: appState.healthFocus) { newFocus in
-            viewModel.updateHealthFocus(mapHealthFocus(newFocus))
-        }
-        .onChange(of: appState.dietaryRestrictions) { newRestrictions in
-            viewModel.updateDietaryRestrictions(newRestrictions)
-        }
-        .alert("Error", isPresented: $viewModel.showError) {
-            Button("OK") {
-                viewModel.dismissError()
-            }
-        } message: {
-            Text(viewModel.errorMessage ?? "Unknown error occurred")
-        }
     }
 
     @ViewBuilder
     private func productContent(_ product: ProductModel) -> some View {
         VStack(spacing: Spacing.xxl) {
             // Product Header
-            productHeader(product)
+            ProductHeaderView(product: product)
+
+            // Category Context Banner (for foods like cheese, nuts, meat, etc.)
+            if let healthScore = viewModel.productData.healthScore,
+               let context = CategoryContextProvider.context(for: product, healthScore: healthScore) {
+                CategoryContextBanner(context: context)
+            }
 
             // Dietary Restrictions (High Priority)
-            if !viewModel.dietaryRestrictionResults.isEmpty {
-                dietaryRestrictionsSection
+            if !viewModel.dietary.results.isEmpty || !viewModel.dietary.aiEnhancedResults.isEmpty || viewModel.dietary.isAnalyzingWithAI {
+                DietaryRestrictionsSectionView(
+                    results: viewModel.dietary.results,
+                    analysisResults: viewModel.dietary.aiEnhancedResults,
+                    isLoading: viewModel.dietary.isAnalyzingWithAI,
+                    isAIEnhanced: viewModel.dietary.isAIEnhanced
+                )
             }
 
             // Health Score Card
-            if let healthScore = viewModel.healthScore {
-                healthScoreCard(healthScore)
+            if let healthScore = viewModel.productData.healthScore {
+                HealthScoreCardView(
+                    healthScore: healthScore,
+                    healthFocus: HealthFocus(fromStored: appState.healthFocus)
+                )
+
+                // Compare Focuses button
+                Button {
+                    showScoreComparison = true
+                } label: {
+                    HStack {
+                        Image(systemName: "slider.horizontal.3")
+                        Text("Compare Health Focuses")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(.textTertiary)
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primaryBlue)
+                    .padding(Spacing.md)
+                    .background(Color.primaryBlue.opacity(0.08))
+                    .cornerRadius(CornerRadius.button)
+                }
+            }
+
+            // What's Good Section (for lower-scoring products)
+            if let healthScore = viewModel.productData.healthScore,
+               healthScore.overall < 60 {
+                PositivesSection(product: product, healthScore: healthScore)
             }
 
             // Nutrition Breakdown
-            nutritionBreakdown(product.nutrition)
+            NutritionBreakdownView(nutrition: product.nutrition)
 
             // Score Breakdown Section
-            if let healthScore = viewModel.healthScore {
-                ScoreBreakdownView(healthScore: healthScore)
+            if let healthScore = viewModel.productData.healthScore {
+                ScoreBreakdownView(
+                    healthScore: healthScore,
+                    healthFocus: HealthFocus(fromStored: appState.healthFocus)
+                )
             }
 
             // Score Adjustments Section
-            if let healthScore = viewModel.healthScore, !healthScore.adjustments.isEmpty {
+            if let healthScore = viewModel.productData.healthScore, !healthScore.adjustments.isEmpty {
                 ScoreAdjustmentsView(adjustments: healthScore.adjustments)
             }
 
             // Ingredients section (progressive disclosure)
             IngredientsAnalysisView(
-                items: viewModel.ingredientItems,
-                rawText: viewModel.rawIngredientsText
+                items: viewModel.productData.ingredientItems,
+                rawText: viewModel.productData.rawIngredientsText
             )
 
             // Alternatives
-            if !viewModel.alternatives.isEmpty {
-                alternativesSection()
-            }
-        }
-        .padding()
-    }
-
-    private var dietaryRestrictionsSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Dietary Restrictions")
-                .font(.title3)
-                .fontWeight(.semibold)
-                .foregroundColor(.textPrimary)
-
-            VStack(spacing: Spacing.sm) {
-                ForEach(viewModel.dietaryRestrictionResults) { result in
-                    DietaryRestrictionBadge(result: result)
-                }
-            }
-        }
-        .padding()
-        .background(Color.backgroundSecondary)
-        .cornerRadius(CornerRadius.md)
-    }
-
-    private func productHeader(_ product: ProductModel) -> some View {
-        HStack(alignment: .center, spacing: Spacing.md) {
-            AsyncProductImage(
-                url: product.imageURL ?? product.thumbnailURL,
-                size: .medium,
-                cornerRadius: CornerRadius.md
-            )
-            .onAppear {
-                AppLog.debug("ProductDetailView image URL: \(product.imageURL ?? "nil") | thumb: \(product.thumbnailURL ?? "nil")", category: .general)
-            }
-
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(product.name)
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                    .foregroundColor(.textPrimary)
-                    .multilineTextAlignment(.leading)
-
-                if let brand = product.brand, !brand.isEmpty {
-                    Text(brand)
-                        .font(.bodyMedium)
-                        .foregroundColor(.textSecondary)
-                }
-
-                Text("Barcode: \(product.barcode)")
-                    .font(.caption)
-                    .foregroundColor(.textTertiary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding()
-        .background(Color.backgroundSecondary)
-        .cornerRadius(12)
-    }
-
-    private func healthScoreCard(_ healthScore: HealthScore) -> some View {
-        VStack(spacing: Spacing.md) {
-            // Title
-            HStack {
-                Text("Health Score")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-
-            HStack(alignment: .top, spacing: Spacing.lg) {
-                // Left column: Overall score (just gauge and focus pill)
-                VStack(spacing: Spacing.sm) {
-                    // Score gauge (score shown inside donut)
-                    ScoreGauge(score: healthScore.overall, size: 100)
-
-                    // Focus pill
-                    Text(healthScore.focus.displayName)
-                        .font(.caption)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xxs)
-                        .background(Color.primaryBlue.opacity(0.12))
-                        .foregroundColor(.primaryBlue)
-                        .cornerRadius(CornerRadius.pill)
-                }
-
-                // Right side: Component scores grid (no weight badges)
-                VStack(spacing: Spacing.sm) {
-                    // Get top 4 components to display
-                    let topComponents = Array(healthScore.breakdown.prefix(4))
-
-                    ForEach(topComponents, id: \.componentName) { component in
-                        componentScoreRow(component)
-                    }
-                }
-                .frame(maxWidth: .infinity)
-            }
-
-            // Bottom section - spans full width
-            VStack(spacing: Spacing.sm) {
-                // Microcopy hints
-                if let bestArea = healthScore.breakdown.max(by: { $0.rawScore < $1.rawScore }),
-                   let weakArea = healthScore.breakdown.min(by: { $0.rawScore < $1.rawScore }) {
-                    VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        if bestArea.rawScore >= 70 {
-                            Text("Best area: \(bestArea.componentName)")
-                                .font(.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                        if weakArea.rawScore < 70 {
-                            Text("Needs attention: \(weakArea.componentName)")
-                                .font(.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                // Narrative copy in disclosure group
-                DisclosureGroup("Why this matters") {
-                    Text(healthScore.explanation)
-                        .font(.caption)
-                        .foregroundColor(.textSecondary)
-                        .padding(.top, Spacing.xs)
-                }
-                .font(.caption)
-                .foregroundColor(.textPrimary)
-            }
-        }
-        .padding()
-        .background(Color.backgroundSecondary)
-        .cornerRadius(CornerRadius.card)
-    }
-
-    /// Component score row for the right-side grid (no weight badge)
-    private func componentScoreRow(_ component: ComponentBreakdown) -> some View {
-        HStack(spacing: Spacing.xs) {
-            // Label
-            Text(component.componentName)
-                .font(.caption)
-                .foregroundColor(.textSecondary)
-                .lineLimit(1)
-
-            Spacer()
-
-            // Score value (color-coded)
-            Text("\(Int(component.rawScore))")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(Color.scoreColor(for: component.rawScore))
-        }
-        .padding(.vertical, Spacing.xxs)
-    }
-
-    private func nutritionBreakdown(_ nutrition: ProductNutrition) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Nutrition Facts")
-                .font(.title3)
-                .fontWeight(.semibold)
-
-            HStack {
-                Text("Serving Size:")
-                    .font(.caption)
-                    .foregroundColor(.textSecondary)
-                Text(nutrition.servingSize)
-                    .font(.caption)
-                    .foregroundColor(.textPrimary)
-            }
-
-            VStack(spacing: 8) {
-                nutritionRow("Calories", value: nutrition.calories, unit: "")
-                nutritionRow("Protein", value: nutrition.protein, unit: "g")
-                nutritionRow("Carbohydrates", value: nutrition.carbohydrates, unit: "g")
-                nutritionRow("Fat", value: nutrition.fat, unit: "g")
-                nutritionRow("Fiber", value: nutrition.fiber, unit: "g")
-                nutritionRow("Sugar", value: nutrition.sugar, unit: "g")
-                nutritionRow("Sodium", value: nutrition.sodium, unit: "g")
-                nutritionRow("Cholesterol", value: nutrition.cholesterol * 1000, unit: "mg", precision: 0)
-            }
-        }
-        .padding()
-        .background(Color.backgroundSecondary)
-        .cornerRadius(12)
-    }
-
-    private func nutritionRow(_ name: String, value: Double, unit: String, precision: Int = 1) -> some View {
-        let formattedValue = String(format: "%.*f", precision, value)
-
-        return HStack {
-            Text(name)
-                .font(.bodyMedium)
-                .foregroundColor(.textPrimary)
-
-            Spacer()
-
-            Text("\(formattedValue)\(unit)")
-                .font(.bodyMedium)
-                .fontWeight(.medium)
-                .foregroundColor(.textPrimary)
-        }
-    }
-
-    private func legacyIngredientsFallback(_ product: ProductModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "leaf")
-                    .foregroundColor(.primaryBlue)
-                Text("Ingredients")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(product.ingredients, id: \.self) { ingredient in
-                    Text("• \\(ingredient)")
-                        .font(.bodyMedium)
-                        .foregroundColor(.textPrimary)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding()
-        .background(Color.backgroundSecondary)
-        .cornerRadius(12)
-    }
-
-    private func alternativesSection() -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Better Alternatives")
-                .font(.title3)
-                .fontWeight(.semibold)
-
-            if viewModel.isLoadingAlternatives {
-                LoadingView()
-            } else if let message = viewModel.alternativesMessage {
-                EmptyStateView(
-                    title: "No Alternatives Yet",
-                    subtitle: message,
-                    systemImage: "lightbulb"
+            if !viewModel.alternatives.items.isEmpty {
+                AlternativesSectionView(
+                    alternatives: viewModel.alternatives.items,
+                    isLoading: viewModel.alternatives.isLoading,
+                    message: viewModel.alternatives.message
                 )
-                .padding(.vertical, Spacing.sm)
-            } else {
-                LazyVStack(spacing: 12) {
-                    ForEach(Array(viewModel.alternatives.enumerated()), id: \.offset) { index, alt in
-                        AlternativeProductCard(alternative: alt, rank: index + 1)
-                    }
+            }
+
+            // Balance Banner (for lower-scoring products)
+            if let healthScore = viewModel.productData.healthScore,
+               healthScore.overall < 60 {
+                BalanceBanner {
+                    appState.selectedTab = Tab.insights.rawValue
                 }
             }
         }
         .padding()
-        .background(Color.backgroundSecondary)
-        .cornerRadius(12)
+    }
+
+    // MARK: - Sheet Content
+
+    @ViewBuilder
+    private var firstScanEducationSheet: some View {
+        if let product = viewModel.productData.product,
+           let healthScore = viewModel.productData.healthScore {
+            FirstScanEducationSheet(
+                product: product,
+                userScore: healthScore,
+                userFocus: HealthFocus(fromStored: appState.healthFocus)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var scoreComparisonSheet: some View {
+        if let product = viewModel.productData.product {
+            ScoreComparisonSheet(
+                product: product,
+                currentFocus: HealthFocus(fromStored: appState.healthFocus)
+            )
+        }
     }
 
     // MARK: - Favorites
@@ -411,16 +306,38 @@ struct ProductDetailView: View {
             }
         }
     }
-}
 
-private func mapHealthFocus(_ string: String) -> HealthFocus {
-    switch string {
-    case "gutHealth", "gut_health": return .gutHealth
-    case "weightLoss", "weight_loss": return .weightLoss
-    case "proteinFocus", "protein_focus": return .proteinFocus
-    case "heartHealth", "heart_health": return .heartHealth
-    case "generalWellness", "general_wellness": return .generalWellness
-    default: return .generalWellness
+    // MARK: - Shopping List Functions
+
+    private var isInShoppingList: Bool {
+        guard let product = viewModel.productData.product else { return false }
+        return shoppingListViewModel.items.contains(where: { $0.barcode == product.barcode })
+    }
+
+    private func addToShoppingList() {
+        guard let product = viewModel.productData.product else { return }
+
+        if isInShoppingList {
+            // Remove from list
+            if let item = shoppingListViewModel.items.first(where: { $0.barcode == product.barcode }) {
+                shoppingListViewModel.removeItem(item)
+            }
+        } else {
+            // Add to list
+            shoppingListViewModel.addItem(product)
+
+            // Show confirmation toast
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showAddedToListConfirmation = true
+            }
+
+            // Hide after 2 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    showAddedToListConfirmation = false
+                }
+            }
+        }
     }
 }
 

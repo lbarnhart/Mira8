@@ -8,7 +8,8 @@ struct VerdictMixView: View {
     var verdictCounts: [String: Int] {
         var counts: [String: Int] = [:]
         for item in items {
-            let healthScore = item.product.calculateScore()
+            // Use cached score from HistoryItem instead of recalculating
+            let healthScore = item.currentHealthScore
             let verdict = healthScore.simplifiedDisplay.verdict.rawValue.lowercased()
             counts[verdict, default: 0] += 1
         }
@@ -109,9 +110,9 @@ struct VerdictMixView_Previews: PreviewProvider {
 
 extension HistoryItem {
     static let mockItems = [
-        HistoryItem(product: Product.mock, scanDate: Date(), scanObjectID: nil),
-        HistoryItem(product: Product.mock, scanDate: Date().addingTimeInterval(-86400), scanObjectID: nil),
-        HistoryItem(product: Product.mock, scanDate: Date().addingTimeInterval(-172800), scanObjectID: nil),
+        HistoryItem(product: Product.mock, scanDate: Date(), originalHealthFocus: "general_wellness", currentHealthFocus: "general_wellness", scanObjectID: nil),
+        HistoryItem(product: Product.mock, scanDate: Date().addingTimeInterval(-86400), originalHealthFocus: "general_wellness", currentHealthFocus: "general_wellness", scanObjectID: nil),
+        HistoryItem(product: Product.mock, scanDate: Date().addingTimeInterval(-172800), originalHealthFocus: "general_wellness", currentHealthFocus: "general_wellness", scanObjectID: nil),
     ]
 }
 

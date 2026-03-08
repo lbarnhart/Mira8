@@ -1,5 +1,21 @@
 import Foundation
 
+/// Summary of positive or negative contribution group
+struct ContributionGroupSummary {
+    enum Group {
+        case positive
+        case negative
+    }
+
+    let group: Group
+    let title: String
+    let rawPoints: Int
+    let weightedPoints: Double
+    let maxPoints: Double
+    let explanation: String
+    let keyFactors: [String]
+}
+
 struct TierMappingOutput {
     let breakdown: [ContributionGroupSummary]
     let contributions: [NutrientContribution]
@@ -49,11 +65,11 @@ final class TierMapper {
 
         let positiveMaxWeighted = contributions
             .filter { $0.kind == .positive }
-            .reduce(0) { $0 + ($1.maxPoints * $1.weightMultiplier) }
+            .reduce(0.0) { $0 + (Double($1.maxPoints) * $1.weight) }
 
         let negativeMaxWeighted = contributions
             .filter { $0.kind == .negative }
-            .reduce(0) { $0 + ($1.maxPoints * $1.weightMultiplier) }
+            .reduce(0.0) { $0 + (Double($1.maxPoints) * $1.weight) }
 
         let positiveSummary = ContributionGroupSummary(
             group: .positive,

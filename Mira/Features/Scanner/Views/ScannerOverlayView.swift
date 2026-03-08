@@ -5,17 +5,28 @@ struct ScannerOverlayView: View {
     let hasScannedProduct: Bool
     let errorMessage: String?
     let onDismissError: () -> Void
+    var hasFilterMode: Bool = false
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 16) {
+            Spacer()
+
+            // Status indicator above the frame
             statusView
-            Spacer()
+                .padding(.bottom, 12)
+
             ScannerFrameView(isActive: isScanning && !hasScannedProduct)
-            Spacer()
+
+            // Instruction text below the frame
             InstructionTextView()
+                .padding(.top, 20)
+
+            Spacer()
+            Spacer()
         }
         .padding(.horizontal, 32)
         .padding(.vertical, 40)
+        .padding(.top, hasFilterMode ? 60 : 0)
         .allowsHitTesting(errorMessage != nil)
     }
 

@@ -8,13 +8,13 @@ struct CategoryAdjustments {
     static func adjustedThresholds(for category: String?) -> CategoryThresholdProfile {
         guard let category = category?.lowercased() else {
             #if DEBUG
-            print("⚠️ CategoryAdjustments: No category provided, using .standard")
+            AppLog.debug("CategoryAdjustments: No category provided, using .standard", category: .scoring)
             #endif
             return .standard
         }
-        
+
         #if DEBUG
-        print("🔍 CategoryAdjustments: Checking category '\(category)'")
+        AppLog.debug("CategoryAdjustments: Checking category '\(category)'", category: .scoring)
         #endif
         
         // Condiments & Sauces - expected to be concentrated, used in small amounts
@@ -25,7 +25,7 @@ struct CategoryAdjustments {
            category.contains("mustard") || category.contains("relish") ||
            category.contains("dip") || category.contains("spread") {
             #if DEBUG
-            print("✅ CategoryAdjustments: Matched .condiment")
+            AppLog.debug("CategoryAdjustments: Matched .condiment", category: .scoring)
             #endif
             return .condiment
         }

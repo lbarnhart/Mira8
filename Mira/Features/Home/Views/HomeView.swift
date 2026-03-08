@@ -7,7 +7,7 @@ struct HomeView: View {
     @State private var selectedScanResult: ScanResult?
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 24) {
                 // Welcome Section
                 VStack(spacing: 8) {
@@ -175,7 +175,7 @@ private struct ProductDetailPlaceholderView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: 20) {
                 Image(systemName: "barcode")
                     .font(.system(size: 60))

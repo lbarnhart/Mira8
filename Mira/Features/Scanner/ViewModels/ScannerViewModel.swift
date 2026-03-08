@@ -2,6 +2,26 @@ import Foundation
 import UIKit
 @preconcurrency import AVFoundation
 
+/// Scanning mode for the scanner view
+enum ScanMode: String, CaseIterable {
+    case barcode
+    case image
+
+    var displayName: String {
+        switch self {
+        case .barcode: return "Barcode"
+        case .image: return "Photo"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .barcode: return "barcode.viewfinder"
+        case .image: return "camera.viewfinder"
+        }
+    }
+}
+
 @MainActor
 final class ScannerViewModel: NSObject, ObservableObject {
     @Published var hasPermission = false
@@ -14,19 +34,38 @@ final class ScannerViewModel: NSObject, ObservableObject {
     @Published private(set) var captureSession: AVCaptureSession?
     @Published private(set) var isCameraSetup = false
 
+    /// Current scanning mode (barcode or image recognition)
+    @Published var scanMode: ScanMode = .barcode
+
+    /// Whether to show the image scanner sheet
+    @Published var showImageScanner = false
+
+    /// Whether to show the duplicate scan sheet
+    @Published var showDuplicateScan = false
+
+    /// Information about the previous scan (for duplicate detection)
+    @Published var previousScanDate: Date?
+    @Published var previousScanScore: Double?
+
     private let usdaService: USDAService
     private let openFoodFactsService: OpenFoodFactsService
     private let coreDataManager: CoreDataManager
+    private let recommendationService: PersonalizedRecommendationService
+    private let analyticsService: ScanAnalyticsService
     private var fetchTask: Task<Void, Never>?
 
     init(
         usdaService: USDAService = .shared,
         openFoodFactsService: OpenFoodFactsService = .shared,
-        coreDataManager: CoreDataManager = .shared
+        coreDataManager: CoreDataManager = .shared,
+        recommendationService: PersonalizedRecommendationService = PersonalizedRecommendationService(),
+        analyticsService: ScanAnalyticsService = .shared
     ) {
         self.usdaService = usdaService
         self.openFoodFactsService = openFoodFactsService
         self.coreDataManager = coreDataManager
+        self.recommendationService = recommendationService
+        self.analyticsService = analyticsService
         super.init()
         checkPermission()
     }
@@ -280,15 +319,52 @@ final class ScannerViewModel: NSObject, ObservableObject {
             AppLog.debug("📦 Has image: \(!(finalModel.imageURL?.isEmpty ?? true))", category: .scanner)
             AppLog.debug("📦 Ingredient count: \(finalModel.ingredients.count)", category: .scanner)
 
+            // Check for duplicate scan before showing product
+            let isDuplicate = checkForRecentScan(barcode: barcode)
+
             await MainActor.run {
                 scannedProduct = finalModel
                 isLoading = false
+
+                // Show duplicate scan sheet if this was scanned recently
+                if isDuplicate {
+                    showDuplicateScan = true
+                }
+
+                // Haptic feedback for successful product load
+                HapticManager.shared.mediumImpact()
             }
 
             AppLog.debug("📸 Scanned product: \(finalModel.name)", category: .scanner)
             persistScanIfNeeded(finalModel)
+
+            // Track analytics
+            let analyticsSource: ScanAnalyticsService.ScanEvent.DataSource = {
+                switch source {
+                case "USDA": return .usda
+                case "Open Food Facts": return .openFoodFacts
+                case "Local Catalog": return .localCatalog
+                default: return .usda
+                }
+            }()
+            let outcome: ScanAnalyticsService.ScanEvent.Outcome = source == "USDA" ? .success : .fallback
+            await analyticsService.trackBarcodeScan(
+                source: analyticsSource,
+                outcome: outcome,
+                productName: finalModel.name,
+                brand: finalModel.brand
+            )
         } catch {
             AppLog.error("❌ Error fetching product: \(error.localizedDescription)", category: .scanner)
+
+            // Track failure
+            await analyticsService.trackBarcodeScan(
+                source: .notFound,
+                outcome: .failure,
+                productName: nil,
+                brand: nil
+            )
+
             await MainActor.run {
                 errorMessage = resolvedErrorMessage(for: error)
                 isLoading = false
@@ -364,6 +440,34 @@ final class ScannerViewModel: NSObject, ObservableObject {
         )
     }
 
+    /// Checks if this product was scanned recently (within last 7 days)
+    /// Returns true if it's a duplicate scan
+    private func checkForRecentScan(barcode: String) -> Bool {
+        do {
+            guard let product = try coreDataManager.fetchProduct(byBarcode: barcode),
+                  let lastScanned = product.lastScanned else {
+                return false
+            }
+
+            // Check if scanned within last 7 days
+            let daysSinceLastScan = Calendar.current.dateComponents([.day], from: lastScanned, to: Date()).day ?? 0
+
+            if daysSinceLastScan <= 7 {
+                previousScanDate = lastScanned
+                // Score will be calculated in the sheet
+                previousScanScore = nil
+
+                AppLog.debug("🔄 Duplicate scan detected: last scanned \(daysSinceLastScan) days ago", category: .scanner)
+                return true
+            }
+
+            return false
+        } catch {
+            AppLog.warning("⚠️ Could not check for recent scan: \(error.localizedDescription)", category: .scanner)
+            return false
+        }
+    }
+
     private func persistScanIfNeeded(_ productModel: ProductModel) {
         let nutritionalData = NutritionalData(
             calories: productModel.nutrition.calories,
@@ -384,6 +488,7 @@ final class ScannerViewModel: NSObject, ObservableObject {
             category: productModel.category,
             nutritionalData: nutritionalData,
             ingredients: preferredIngredientsString(from: productModel),
+            servingSize: productModel.nutrition.servingSize,
             imageURL: productModel.imageURL,
             thumbnailURL: productModel.thumbnailURL ?? productModel.imageURL,
             lastScanned: Date()
@@ -400,8 +505,8 @@ final class ScannerViewModel: NSObject, ObservableObject {
                 // Determine user focus and restrictions for scoring
                 let profile = try manager.fetchUserProfile()
                 let focusString = profile?.healthFocus ?? "generalWellness"
-                let focus = mapHealthFocus(from: focusString)
-                let restrictions = mapRestrictions(from: profile?.dietaryRestrictions)
+                let focus = HealthFocus(fromStored: focusString)
+                let restrictions = DietaryRestriction.fromCommaSeparated(profile?.dietaryRestrictions)
 
                 // Compute health score from product model
                 let healthScore = ScoringEngine.shared.calculateHealthScore(
@@ -418,6 +523,10 @@ final class ScannerViewModel: NSObject, ObservableObject {
                 AppLog.debug("📸 Attempting to save scan history", category: .scanner)
                 try manager.saveScanHistory(product: product, healthFocus: focusString)
                 AppLog.debug("📸 Scan history saved successfully with score: \(score)", category: .scanner)
+
+                // Invalidate insights cache so new scan is reflected
+                await self?.recommendationService.invalidateCache()
+                AppLog.debug("📸 Insights cache invalidated", category: .scanner)
             } catch {
                 AppLog.error("❌ Failed to persist scan for \(barcode): \(error.localizedDescription)", category: .scanner)
                 await MainActor.run {
@@ -433,33 +542,7 @@ final class ScannerViewModel: NSObject, ObservableObject {
 }
 
 // MARK: - Mapping helpers (fileprivate, non-actor isolated)
-fileprivate func mapHealthFocus(from string: String) -> HealthFocus {
-    switch string {
-    case "gutHealth", "gut_health": return .gutHealth
-    case "weightLoss", "weight_loss": return .weightLoss
-    case "proteinFocus", "protein_focus": return .proteinFocus
-    case "heartHealth", "heart_health": return .heartHealth
-    case "generalWellness", "general_wellness": return .generalWellness
-    default: return .generalWellness
-    }
-}
 
-fileprivate func mapRestrictions(from stored: String?) -> [DietaryRestriction] {
-    guard let stored, !stored.isEmpty else { return [] }
-    let ids = stored.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-    return ids.compactMap { id in
-        switch id {
-        case "vegan": return .vegan
-        case "vegetarian": return .vegetarian
-        case "glutenFree", "gluten_free": return .glutenFree
-        case "dairyFree", "dairy_free": return .dairyFree
-        case "nutFree", "nut_free": return .nutFree
-        case "lowSodium", "low_sodium": return .lowSodium
-        case "sugarFree", "sugar_free": return .sugarFree
-        default: return nil
-        }
-    }
-}
 
 fileprivate func preferredIngredientsString(from product: ProductModel) -> String? {
     if let raw = product.rawIngredientsText?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty {
@@ -487,8 +570,8 @@ extension ScannerViewModel: AVCaptureMetadataOutputObjectsDelegate {
         Task { @MainActor in
             guard self.scannedProduct == nil else { return }
 
-            let impactFeedback = UIImpactFeedbackGenerator(style: .medium)
-            impactFeedback.impactOccurred()
+            // Haptic feedback for barcode detection
+            HapticManager.shared.barcodeDetected()
 
             let cleanedBarcode = rawBarcode.trimmingCharacters(in: .whitespacesAndNewlines)
             AppLog.debug("📷 RAW BARCODE DETECTED: '\(rawBarcode)'", category: .scanner)
@@ -497,6 +580,19 @@ extension ScannerViewModel: AVCaptureMetadataOutputObjectsDelegate {
 
             guard !cleanedBarcode.isEmpty else {
                 AppLog.debug("📷 Ignored empty barcode after trimming", category: .scanner)
+                return
+            }
+
+            // Filter out QR codes - only accept product barcodes
+            let validBarcodeTypes: [AVMetadataObject.ObjectType] = [
+                .ean13,
+                .ean8,
+                .upce,
+                .code128
+            ]
+
+            guard validBarcodeTypes.contains(readableObject.type) else {
+                AppLog.debug("📷 Ignored non-product barcode type: \(readableObject.type.rawValue)", category: .scanner)
                 return
             }
 

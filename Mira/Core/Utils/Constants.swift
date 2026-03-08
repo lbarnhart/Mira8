@@ -11,6 +11,17 @@ struct Constants {
         static let requestTimeout: TimeInterval = 10.0
     }
 
+    struct Claude {
+        static let baseURL = "https://api.anthropic.com"
+        static let messagesPath = "/v1/messages"
+        static let apiVersion = "2023-06-01"
+        static var apiKey: String { AppConfiguration.shared.claudeAPIKey }
+        static let defaultModel = "claude-3-haiku-20240307"
+        static let sonnetModel = "claude-sonnet-4-20250514"
+        static let requestTimeout: TimeInterval = 30.0
+        static let maxTokensDefault = 1024
+    }
+
     struct Amazon {
         /// Register for the Amazon Associates program and provide your tracking ID here using Configuration.plist.
         static var associateID: String { AppConfiguration.shared.amazonAssociateTag }

@@ -8,16 +8,42 @@ struct IngredientsAnalysisView: View {
     @State private var showRawText = false
     @State private var selectedIngredient: IngredientItem?
 
-    private var totalCount: Int { items.count }
-    private var beneficialItems: [IngredientItem] { items.filter { $0.category == .beneficial }.sorted { $0.position < $1.position } }
-    private var neutralItems: [IngredientItem] { items.filter { $0.category == .neutral }.sorted { $0.position < $1.position } }
-    private var concerningItems: [IngredientItem] { items.filter { $0.category == .concerning }.sorted { $0.position < $1.position } }
-    private var unknownItems: [IngredientItem] { items.filter { $0.category == .unknown }.sorted { $0.position < $1.position } }
+    // Cached filtered/sorted results - computed once when items change
+    @State private var cachedData: CachedIngredientData?
 
-    private var concerningPercentage: Double {
-        guard totalCount > 0 else { return 0 }
-        return (Double(concerningItems.count) / Double(totalCount)) * 100
+    private struct CachedIngredientData: Equatable {
+        let sourceItems: [IngredientItem]
+        let beneficialItems: [IngredientItem]
+        let neutralItems: [IngredientItem]
+        let concerningItems: [IngredientItem]
+        let unknownItems: [IngredientItem]
+        let concerningPercentage: Double
+
+        init(items: [IngredientItem]) {
+            self.sourceItems = items
+            self.beneficialItems = items.filter { $0.category == .beneficial }.sorted { $0.position < $1.position }
+            self.neutralItems = items.filter { $0.category == .neutral }.sorted { $0.position < $1.position }
+            self.concerningItems = items.filter { $0.category == .concerning }.sorted { $0.position < $1.position }
+            self.unknownItems = items.filter { $0.category == .unknown }.sorted { $0.position < $1.position }
+
+            if items.isEmpty {
+                self.concerningPercentage = 0
+            } else {
+                self.concerningPercentage = (Double(concerningItems.count) / Double(items.count)) * 100
+            }
+        }
     }
+
+    private var data: CachedIngredientData {
+        cachedData ?? CachedIngredientData(items: items)
+    }
+
+    private var totalCount: Int { items.count }
+    private var beneficialItems: [IngredientItem] { data.beneficialItems }
+    private var neutralItems: [IngredientItem] { data.neutralItems }
+    private var concerningItems: [IngredientItem] { data.concerningItems }
+    private var unknownItems: [IngredientItem] { data.unknownItems }
+    private var concerningPercentage: Double { data.concerningPercentage }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -81,6 +107,18 @@ struct IngredientsAnalysisView: View {
         .sheet(item: $selectedIngredient) { ingredient in
             IngredientDetailSheet(ingredient: ingredient)
                 .presentationDetents([.medium])
+        }
+        .onAppear {
+            updateCacheIfNeeded()
+        }
+        .onChange(of: items) { _ in
+            updateCacheIfNeeded()
+        }
+    }
+
+    private func updateCacheIfNeeded() {
+        if cachedData?.sourceItems != items {
+            cachedData = CachedIngredientData(items: items)
         }
     }
 
@@ -363,9 +401,10 @@ private struct MissingIngredientsInfo: View {
 private struct IngredientDetailSheet: View {
     let ingredient: IngredientItem
     @Environment(\.dismiss) private var dismiss
+    @State private var showAIAnalysis = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     header
@@ -386,6 +425,25 @@ private struct IngredientDetailSheet: View {
                                     .foregroundColor(.primaryBlue)
                             }
                         }
+                    }
+
+                    // AI Analysis Button
+                    Button {
+                        showAIAnalysis = true
+                    } label: {
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "sparkles")
+                            Text("Get AI Analysis")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.textTertiary)
+                        }
+                        .font(.body.weight(.medium))
+                        .foregroundColor(.primaryBlue)
+                        .padding()
+                        .background(Color.primaryBlue.opacity(0.1))
+                        .cornerRadius(CornerRadius.md)
                     }
 
                     if !ingredient.explanation.isEmpty {
@@ -413,6 +471,9 @@ private struct IngredientDetailSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showAIAnalysis) {
+                IngredientAIAnalysisSheet(ingredientName: ingredient.displayName)
             }
         }
     }

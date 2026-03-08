@@ -17,19 +17,41 @@ struct IngredientAnalysis: Identifiable {
     let position: Int
 }
 
+/// Source of ingredient metadata
+enum IngredientMetadataSource: String, Codable {
+    case local       // From local database
+    case aiVerified  // Verified by AI
+    case aiInferred  // Inferred by AI (lower confidence)
+}
+
+/// Metadata about an ingredient
+struct IngredientMetadata {
+    let displayName: String
+    let category: IngredientCategory
+    let explanation: String
+    let source: IngredientMetadataSource
+
+    init(displayName: String, category: IngredientCategory, explanation: String, source: IngredientMetadataSource = .local) {
+        self.displayName = displayName
+        self.category = category
+        self.explanation = explanation
+        self.source = source
+    }
+}
+
 final class IngredientAnalyzer {
     static let shared = IngredientAnalyzer()
-
-    private struct IngredientMetadata {
-        let displayName: String
-        let category: IngredientCategory
-        let explanation: String
-    }
 
     private let ingredientDatabase: [String: IngredientMetadata]
 
     private init() {
         ingredientDatabase = IngredientAnalyzer.buildIngredientDatabase()
+    }
+
+    /// Check if we have local metadata for an ingredient
+    func hasMetadata(for ingredient: String) -> Bool {
+        let normalized = normalize(ingredient)
+        return ingredientDatabase[normalized] != nil
     }
 
     func parseIngredientList(_ raw: String?) -> [String] {
@@ -596,7 +618,7 @@ final class IngredientAnalyzer {
         }
 
         #if DEBUG
-        print("⚠️ Unknown ingredient: '\(normalized)'")
+        AppLog.debug("Unknown ingredient: '\(normalized)'", category: .scoring)
         #endif
 
         return IngredientMetadata(

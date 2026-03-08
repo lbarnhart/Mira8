@@ -5,6 +5,7 @@ struct HistoryView: View {
     @StateObject private var viewModel = HistoryViewModel()
     @EnvironmentObject private var appState: AppState
     @State private var favoriteStatuses: [String: Bool] = [:]
+    @State private var showFullInsights = false
 
     var body: some View {
         NavigationStack {
@@ -18,6 +19,21 @@ struct HistoryView: View {
                     .padding(Spacing.sectionSpacing)
                 } else {
                     List {
+                        // Pattern Insights Banner
+                        if !viewModel.patterns.isEmpty {
+                            Section {
+                                PatternInsightsBanner(
+                                    patterns: viewModel.patterns,
+                                    onViewInsights: {
+                                        showFullInsights = true
+                                    }
+                                )
+                            }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                            .listRowBackground(Color.clear)
+                        }
+
+                        // Average Score Header
                         if let avgScore = viewModel.averageRecentScore {
                             Section {
                                 AverageScoreHeader(averageScore: avgScore)
@@ -54,6 +70,15 @@ struct HistoryView: View {
             }
             .onChange(of: favoriteStatusTrigger) { _ in
                 loadFavoriteStatuses()
+            }
+            .sheet(isPresented: $showFullInsights) {
+                FullInsightsSheet(
+                    patterns: viewModel.patterns,
+                    timeframe: viewModel.selectedTimeframe,
+                    onTimeframeChange: { newTimeframe in
+                        viewModel.updateTimeframe(newTimeframe)
+                    }
+                )
             }
         }
     }

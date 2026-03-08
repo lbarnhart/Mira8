@@ -93,10 +93,10 @@ final class HealthScoringPipeline {
             nutriScoreVerdict = .unknown
         }
         
-        // Use Nutriscore verdict for primary display if available
-        let verdictForDisplay = nutriScoreVerdict != .unknown 
+        // Use Nutriscore verdict for primary display if available, otherwise use Mira's own score-based verdict
+        let verdictForDisplay = nutriScoreVerdict != .unknown
             ? ScoreVerdict(from: nutriScoreVerdict)
-            : .fair  // When Nutriscore unavailable, show neutral verdict instead of harsh custom score
+            : verdict
         
         // Only show category context if Nutriscore is NOT available
         // When Nutriscore is primary verdict, don't confuse users with percentile rankings
@@ -122,12 +122,12 @@ final class HealthScoringPipeline {
             confidence: guardrail.confidence,
             confidenceWarning: guardrail.warning,
             confidenceRange: guardrail.confidenceRange,
-            rawPositivePoints: evaluation.rawPositivePoints,
-            rawNegativePoints: evaluation.rawNegativePoints,
+            rawPositivePoints: Double(evaluation.rawPositivePoints),
+            rawNegativePoints: Double(evaluation.rawNegativePoints),
             weightedPositivePoints: evaluation.weightedPositivePoints,
             weightedNegativePoints: evaluation.weightedNegativePoints,
             contributions: mapping.contributions,
-            breakdown: mapping.breakdown,
+            breakdown: convertToComponentBreakdown(mapping.breakdown),
             adjustments: mapping.adjustments,
             topReasons: mapping.topReasons,
             uxMessages: uxMessages,
@@ -135,7 +135,7 @@ final class HealthScoringPipeline {
             scoringResult: scoringResult,
             verdict: verdict,
             simplifiedDisplay: simplifiedDisplay,
-            categoryPercentile: percentile,
+            categoryPercentile: percentile.map { Double($0) },
             categoryRank: categoryRank,
             nutriScoreVerdict: nutriScoreVerdict
         )
@@ -385,5 +385,19 @@ final class HealthScoringPipeline {
         }
 
         return Array(Set(suggestions)).sorted()
+    }
+
+    /// Convert ContributionGroupSummary to ComponentBreakdown
+    private func convertToComponentBreakdown(_ summaries: [ContributionGroupSummary]) -> [ComponentBreakdown] {
+        summaries.map { summary in
+            ComponentBreakdown(
+                componentName: summary.title,
+                rawScore: Double(summary.rawPoints),
+                weight: 1.0, // Default weight
+                weightedScore: summary.weightedPoints,
+                explanation: summary.explanation,
+                keyFactors: summary.keyFactors
+            )
+        }
     }
 }

@@ -27,9 +27,11 @@ extension ProductEntity {
             category: self.category,
             nutritionalData: nutritionalInfo,
             ingredients: self.ingredients,
+            servingSize: self.servingSize,
             imageURL: self.imageURL,
             thumbnailURL: self.thumbnailURL ?? self.imageURL,
-            lastScanned: self.lastScanned
+            lastScanned: self.lastScanned,
+            nutriScore: self.nutriScore
         )
 
         AppLog.debug("Converted ProductEntity to Product: \(product.name)", category: .persistence)
@@ -51,9 +53,11 @@ extension ProductEntity {
         entity.brand = product.brand
         entity.category = product.category
         entity.ingredients = product.ingredients
+        entity.servingSize = product.servingSize
         entity.imageURL = product.imageURL
         entity.thumbnailURL = product.thumbnailURL ?? product.imageURL
         entity.lastScanned = product.lastScanned ?? Date()
+        entity.nutriScore = product.nutriScore
 
         // Encode nutritional data
         if let data = try? JSONEncoder().encode(product.nutritionalData) {

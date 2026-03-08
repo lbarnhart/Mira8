@@ -3,6 +3,10 @@ import SwiftUI
 /// Displays a detailed breakdown of how each scoring component contributed to the overall health score
 struct ScoreBreakdownView: View {
     let healthScore: HealthScore
+    let healthFocus: HealthFocus
+
+    @State private var selectedExplainer: ScoreExplainer?
+    @State private var showExplainer = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -14,9 +18,23 @@ struct ScoreBreakdownView: View {
             VStack(spacing: Spacing.md) {
                 ForEach(healthScore.breakdown, id: \.componentName) { component in
                     ComponentScoreCard(component: component)
+                        .onTapGesture {
+                            if let explainer = ExplainerLibrary.explainer(
+                                for: component.componentName,
+                                healthFocus: healthFocus
+                            ) {
+                                selectedExplainer = explainer
+                                showExplainer = true
+                            }
+                        }
                 }
             }
             .padding(.horizontal, Spacing.md)
+        }
+        .sheet(isPresented: $showExplainer) {
+            if let explainer = selectedExplainer {
+                ExplainerCard(explainer: explainer)
+            }
         }
     }
 }
@@ -31,11 +49,19 @@ private struct ComponentScoreCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            // Header with component name only
-            Text(component.componentName)
-                .font(.bodyMedium)
-                .fontWeight(.semibold)
-                .foregroundColor(.textPrimary)
+            // Header with component name and info icon
+            HStack {
+                Text(component.componentName)
+                    .font(.bodyMedium)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.textPrimary)
+
+                Spacer()
+
+                Image(systemName: "info.circle")
+                    .font(.body)
+                    .foregroundColor(.primaryBlue.opacity(0.7))
+            }
 
             // Points earned out of maximum possible
             let maxPoints = component.weight * 100
@@ -92,68 +118,5 @@ private struct ComponentScoreCard: View {
     }
 }
 
-#Preview {
-    let sampleBreakdown = [
-        ComponentBreakdown(
-            componentName: "Macronutrients",
-            rawScore: 85.0,
-            weight: 0.35,
-            weightedScore: 29.75,
-            explanation: "Heart health analysis: Low cholesterol (30mg); heart-friendly amount. Excellent sodium level (300mg); AHA recommends ≤1.5g sodium per day; this translates to ~500mg per serving",
-            keyFactors: ["Cholesterol: 30mg", "Sodium: 300mg", "Fiber: 5.0g"]
-        ),
-        ComponentBreakdown(
-            componentName: "Micronutrients",
-            rawScore: 60.0,
-            weight: 0.2,
-            weightedScore: 12.0,
-            explanation: "Good nutrient density based on protein (10.0g) and fiber (5.0g). Note: Full micronutrient data not available—score uses proxy.",
-            keyFactors: ["Iron", "Vitamin B12", "Zinc", "Magnesium", "Vitamin E", "Folate"]
-        ),
-        ComponentBreakdown(
-            componentName: "Processing Level",
-            rawScore: 80.0,
-            weight: 0.15,
-            weightedScore: 12.0,
-            explanation: "Processing level: Minimally Processed. Based on NOVA classification: minimize ultra-processed foods (Group 4)",
-            keyFactors: ["Processing: Minimally Processed"]
-        ),
-        ComponentBreakdown(
-            componentName: "Ingredient Quality",
-            rawScore: 70.0,
-            weight: 0.2,
-            weightedScore: 14.0,
-            explanation: "Ingredient quality could be improved (2 beneficial out of 8 total)",
-            keyFactors: ["Total ingredients: 8", "Beneficial ingredients: 2"]
-        ),
-        ComponentBreakdown(
-            componentName: "Additives",
-            rawScore: 95.0,
-            weight: 0.1,
-            weightedScore: 9.5,
-            explanation: "Minimal harmful additives detected (0 harmful, 1 total)",
-            keyFactors: ["Total additives: 1", "Harmful additives: 0"]
-        )
-    ]
-
-    let sampleScore = HealthScore(
-        overall: 77.25,
-        components: ScoreComponents(
-            macronutrientBalance: ComponentScore(score: 85, weight: 0.35, explanation: "", recommendations: []),
-            micronutrientDensity: ComponentScore(score: 60, weight: 0.2, explanation: "", recommendations: []),
-            processingLevel: ComponentScore(score: 80, weight: 0.15, explanation: "", recommendations: []),
-            ingredientQuality: ComponentScore(score: 70, weight: 0.2, explanation: "", recommendations: []),
-            additives: ComponentScore(score: 95, weight: 0.1, explanation: "", recommendations: [])
-        ),
-        explanation: "Sample explanation",
-        focus: .heartHealth,
-        breakdown: sampleBreakdown,
-        adjustments: [],
-        confidence: .high,
-        confidenceWarning: nil
-    )
-
-    ScoreBreakdownView(healthScore: sampleScore)
-        .padding()
-        .background(Color.backgroundPrimary)
-}
+// Preview temporarily disabled during HealthScore model refactor
+// TODO: Update preview once HealthScore model is finalized

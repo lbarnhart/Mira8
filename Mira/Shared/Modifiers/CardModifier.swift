@@ -124,16 +124,27 @@ struct PressableCardModifier: ViewModifier {
     }
 
     func body(content: Content) -> some View {
-        content
-            .modifier(CardModifier(style: style, isPressed: isPressed))
-            .onTapGesture {
-                action()
-            }
-            .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
+        Button {
+            action()
+        } label: {
+            content
+                .modifier(CardModifier(style: style, isPressed: isPressed))
+        }
+        .buttonStyle(PressableButtonStyle(isPressed: $isPressed))
+    }
+}
+
+// Custom button style to track press state
+private struct PressableButtonStyle: ButtonStyle {
+    @Binding var isPressed: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .onChange(of: configuration.isPressed) { newValue in
                 withAnimation(.easeInOut(duration: 0.1)) {
-                    isPressed = pressing
+                    isPressed = newValue
                 }
-            }, perform: {})
+            }
     }
 }
 

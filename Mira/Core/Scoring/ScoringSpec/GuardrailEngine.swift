@@ -126,10 +126,8 @@ final class GuardrailEngine {
         var stopProcessing = false
         
         #if DEBUG
-        print("🚨 GuardrailEngine.apply() started for: \(product.product.name)")
-        print("   Product category: \(category ?? "unknown")")
-        print("   Leniency level: \(leniency)")
-        print("   Base score: \(normalizedScore)")
+        AppLog.debug("GuardrailEngine.apply() started for: \(product.product.name)", category: .scoring)
+        AppLog.debug("Product category: \(category ?? "unknown"), Leniency: \(leniency), Base score: \(normalizedScore)", category: .scoring)
         #endif
         
         for rule in rules {
@@ -137,14 +135,11 @@ final class GuardrailEngine {
             guard !activeCaps.contains(rule.id), rule.applies(to: product) else { continue }
 
             #if DEBUG
-            print("   📋 Checking rule: \(rule.id)")
+            AppLog.debug("Checking rule: \(rule.id)", category: .scoring)
             #endif
             
             switch rule.evaluate(product: product, evaluation: evaluation) {
             case .none:
-                #if DEBUG
-                print("      ✓ No issue")
-                #endif
                 continue
             case .cap(let tier, let reason):
                 // Skip applying further caps if already have a red/hard trigger
@@ -159,7 +154,7 @@ final class GuardrailEngine {
                 finalScore = min(finalScore, adjustedTier.maxScore)
                 confidenceRange = clampRange(confidenceRange, upper: adjustedTier.maxScore)
                 #if DEBUG
-                print("      🔶 CAP applied: \(rule.id) → tier \(adjustedTier) (max \(adjustedTier.maxScore))")
+                AppLog.debug("CAP applied: \(rule.id) → tier \(adjustedTier) (max \(adjustedTier.maxScore))", category: .scoring)
                 #endif
             case .redTrigger(let reason):
                 let trigger = GuardrailTriggerOutcome(ruleID: rule.id, severity: .red, message: reason)
@@ -169,7 +164,7 @@ final class GuardrailEngine {
                 confidence = .low
                 confidenceRange = clampRange(confidenceRange, upper: Constants.redTriggerMaxScore)
                 #if DEBUG
-                print("      🔴 RED TRIGGER: \(rule.id)")
+                AppLog.debug("RED TRIGGER: \(rule.id)", category: .scoring)
                 #endif
             case .hardFail(let reason):
                 let trigger = GuardrailTriggerOutcome(ruleID: rule.id, severity: .hardFail, message: reason)
@@ -180,7 +175,7 @@ final class GuardrailEngine {
                 confidenceRange = 0...0
                 stopProcessing = true
                 #if DEBUG
-                print("      ⛔ HARD FAIL: \(rule.id) - \(reason)")
+                AppLog.debug("HARD FAIL: \(rule.id) - \(reason)", category: .scoring)
                 #endif
             }
         }
@@ -190,9 +185,7 @@ final class GuardrailEngine {
         let warningText = warnings.isEmpty ? nil : warnings.joined(separator: " ")
         
         #if DEBUG
-        print("   Final score: \(finalScore)")
-        print("   Caps applied: \(capsApplied.count)")
-        print("   Hard fails: \(triggers.filter { $0.severity == .hardFail }.count)")
+        AppLog.debug("Final score: \(finalScore), Caps: \(capsApplied.count), Hard fails: \(triggers.filter { $0.severity == .hardFail }.count)", category: .scoring)
         #endif
 
         return GuardrailOutcome(
@@ -451,14 +444,14 @@ private enum ServingSizeParser {
         let normalized = servingString.lowercased().trimmingCharacters(in: .whitespaces)
         
         #if DEBUG
-        print("🔍 ServingSizeParser.extractGrams called with: '\(servingString)'")
+        AppLog.debug("ServingSizeParser.extractGrams called with: '\(servingString)'", category: .scoring)
         #endif
         
         // Pattern 1: Look for explicit grams - "33g" or "(33g)" or "33 g"
         // This handles: "33g", "2 tbsp (33g)", "(33g)", "33 g"
         if let grams = extractNumber(from: normalized, pattern: #"(\d+\.?\d*)\s*g\b"#) {
             #if DEBUG
-            print("✓ ServingSizeParser: Extracted \(grams)g from explicit grams pattern")
+            AppLog.debug("ServingSizeParser: Extracted \(grams)g from explicit grams pattern", category: .scoring)
             #endif
             return grams
         }
@@ -467,7 +460,7 @@ private enum ServingSizeParser {
         // This handles: "30ml", "30 ml", "(30ml)"
         if let ml = extractNumber(from: normalized, pattern: #"(\d+\.?\d*)\s*ml\b"#) {
             #if DEBUG
-            print("✓ ServingSizeParser: Extracted \(ml)g from ml pattern")
+            AppLog.debug("ServingSizeParser: Extracted \(ml)g from ml pattern", category: .scoring)
             #endif
             return ml  // 1ml ≈ 1g for most liquids
         }
@@ -475,7 +468,7 @@ private enum ServingSizeParser {
         // Pattern 3: Common volume measurements -> gram estimates
         if let grams = estimateFromVolumeDescription(normalized) {
             #if DEBUG
-            print("✓ ServingSizeParser: Estimated \(grams)g from volume description")
+            AppLog.debug("ServingSizeParser: Estimated \(grams)g from volume description", category: .scoring)
             #endif
             return grams
         }
@@ -483,7 +476,7 @@ private enum ServingSizeParser {
         // Default: assume 100g if we can't parse
         // This is safe because nutrition values are stored per 100g
         #if DEBUG
-        print("⚠️ ServingSizeParser: Could not parse '\(servingString)', defaulting to 100g")
+        AppLog.debug("ServingSizeParser: Could not parse '\(servingString)', defaulting to 100g", category: .scoring)
         #endif
         return 100.0
     }

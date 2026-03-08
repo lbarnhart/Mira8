@@ -3,24 +3,47 @@ import Foundation
 import UIKit
 
 extension Color {
-    // MARK: - Primary Brand Colors
-    /// Ocean Teal - Primary brand color (#2B9B96)
-    static let oceanTeal = Color(hex: "2B9B96")
+    // MARK: - Primary Brand Colors (Dark Mode Optimized)
+    /// Ocean Teal - Primary brand color (auto-adjusts for dark mode)
+    static var oceanTeal: Color {
+        Color(light: Color(hex: "2B9B96"), dark: Color(hex: "3DB5AE"))
+    }
 
-    /// Seafoam Green - Secondary brand color (#4CAF7D)
-    static let seafoamGreen = Color(hex: "4CAF7D")
+    /// Seafoam Green - Secondary brand color (auto-adjusts for dark mode)
+    static var seafoamGreen: Color {
+        Color(light: Color(hex: "4CAF7D"), dark: Color(hex: "5FD396"))
+    }
 
-    /// Deep Forest - Dark accent (#1A5A4A)
-    static let deepForest = Color(hex: "1A5A4A")
+    /// Deep Forest - Dark accent (auto-adjusts for dark mode)
+    static var deepForest: Color {
+        Color(light: Color(hex: "1A5A4A"), dark: Color(hex: "2A7A6A"))
+    }
 
-    /// Mint Fresh - Light accent (#67D4A5)
-    static let mintFresh = Color(hex: "67D4A5")
+    /// Mint Fresh - Light accent (auto-adjusts for dark mode)
+    static var mintFresh: Color {
+        Color(light: Color(hex: "67D4A5"), dark: Color(hex: "80E0B8"))
+    }
 
-    /// Aqua Marine - Vibrant accent (#38C4B8)
-    static let aquaMarine = Color(hex: "38C4B8")
+    /// Aqua Marine - Vibrant accent (auto-adjusts for dark mode)
+    static var aquaMarine: Color {
+        Color(light: Color(hex: "38C4B8"), dark: Color(hex: "4DD9CB"))
+    }
 
-    /// Sage - Muted green (#7FB069)
-    static let sage = Color(hex: "7FB069")
+    /// Sage - Muted green (auto-adjusts for dark mode)
+    static var sage: Color {
+        Color(light: Color(hex: "7FB069"), dark: Color(hex: "96C982"))
+    }
+
+    /// Warm Cream - Soft warm background
+    static let warmCream = Color(hex: "FDF8F3")
+
+    /// Forest Green - Deep natural green
+    static let forestGreen = Color(hex: "228B22")
+
+    // MARK: - Traffic Light Colors
+    static let trafficLightGreen = Color(hex: "34C759")
+    static let trafficLightYellow = Color(hex: "FFCC00")
+    static let trafficLightRed = Color(hex: "FF3B30")
 
     // MARK: - Semantic Colors
     static let primary = oceanTeal
@@ -31,11 +54,26 @@ extension Color {
     static let error = Color(hex: "FF453A")
     static let info = aquaMarine
 
-    // MARK: - Score Colors
-    static let scoreExcellent = Color(hex: "34C759") // iOS Green
-    static let scoreGood = Color(hex: "32D74B")      // Lighter green
-    static let scoreFair = Color(hex: "FF9F0A")      // iOS Orange
-    static let scorePoor = Color(hex: "FF453A")      // iOS Red
+    // MARK: - Score Colors (Dark Mode Optimized)
+    /// Excellent score color (80-100) - adapts for dark mode
+    static var scoreExcellent: Color {
+        Color(light: Color(hex: "34C759"), dark: Color(hex: "32D74B"))
+    }
+
+    /// Good score color (60-79) - adapts for dark mode
+    static var scoreGood: Color {
+        Color(light: Color(hex: "32D74B"), dark: Color(hex: "30DB5B"))
+    }
+
+    /// Fair score color (40-59) - adapts for dark mode
+    static var scoreFair: Color {
+        Color(light: Color(hex: "FF9F0A"), dark: Color(hex: "FFB340"))
+    }
+
+    /// Poor score color (0-39) - adapts for dark mode
+    static var scorePoor: Color {
+        Color(light: Color(hex: "FF453A"), dark: Color(hex: "FF5F54"))
+    }
 
     // MARK: - Background Colors (Auto dark mode support)
     static let backgroundPrimary = Color(.systemBackground)
@@ -48,7 +86,11 @@ extension Color {
     static let cardBackground = Color(.systemBackground)
     static let cardBackgroundElevated = Color(.secondarySystemBackground)
     static let cardBorder = Color(.separator)
-    static let cardShadow = Color.black.opacity(0.1)
+
+    /// Card shadow that adapts for dark mode (lighter in dark mode for better visibility)
+    static var cardShadow: Color {
+        Color(light: Color.black.opacity(0.1), dark: Color.black.opacity(0.3))
+    }
 
     // MARK: - Text Colors (Auto dark mode support)
     static let textPrimary = Color(.label)
@@ -92,6 +134,32 @@ extension Color {
         default:
             return .scorePoor
         }
+    }
+
+    /// Creates an overlay color with appropriate opacity for elevation
+    /// - Parameter level: Elevation level (1-3, where 3 is highest)
+    /// - Returns: Color suitable for overlays in light and dark modes
+    static func elevationOverlay(level: Int = 1) -> Color {
+        let opacity: Double
+        switch level {
+        case 1: opacity = 0.05
+        case 2: opacity = 0.08
+        case 3: opacity = 0.12
+        default: opacity = 0.05
+        }
+
+        return Color(
+            light: Color.black.opacity(opacity),
+            dark: Color.white.opacity(opacity * 0.6)
+        )
+    }
+
+    /// Creates a separator color with better dark mode contrast
+    static var separatorEnhanced: Color {
+        Color(
+            light: Color.gray.opacity(0.2),
+            dark: Color.gray.opacity(0.35)
+        )
     }
 
     // MARK: - Gradients
@@ -165,9 +233,22 @@ extension Color {
         )
     }
 
+    // MARK: - Dark Mode Support
+    /// Creates a color that adapts between light and dark modes
+    init(light: Color, dark: Color) {
+        self.init(UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return UIColor(dark)
+            default:
+                return UIColor(light)
+            }
+        })
+    }
+
     // MARK: - Legacy Aliases (for compatibility)
-    static let primaryBlue = oceanTeal
-    static let primaryGreen = seafoamGreen
+    static var primaryBlue: Color { oceanTeal }
+    static var primaryGreen: Color { seafoamGreen }
 }
 
 // MARK: - ShapeStyle adapters for Color usages

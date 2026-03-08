@@ -59,22 +59,26 @@ struct ScoreGauge: View {
     let style: ScoreGaugeStyle
     let showAnimation: Bool
     let animationDelay: Double
+    let confidence: ScoreConfidence?
 
     @State private var animatedScore: Double = 0
     @State private var isAnimating = false
+    @State private var showConfetti = false
 
     init(
         score: Double,
         size: CGFloat = Size.scoreGaugeMD,
         style: ScoreGaugeStyle = .standard,
         showAnimation: Bool = true,
-        animationDelay: Double = 0.0
+        animationDelay: Double = 0.0,
+        confidence: ScoreConfidence? = nil
     ) {
         self.score = score
         self.size = size
         self.style = style
         self.showAnimation = showAnimation
         self.animationDelay = animationDelay
+        self.confidence = confidence
     }
 
     private var normalizedScore: Double {
@@ -167,6 +171,25 @@ struct ScoreGauge: View {
                     .frame(width: size + 12, height: size + 12)
                     .blur(radius: 2)
             }
+
+            // Confidence badge
+            if let confidence = confidence, style != .minimal {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        confidenceBadge(for: confidence)
+                            .offset(x: size * 0.15, y: size * 0.15)
+                    }
+                }
+            }
+
+            // Confetti for excellent scores
+            if showConfetti && normalizedScore >= 80 {
+                ConfettiView()
+                    .frame(width: size * 2, height: size * 2)
+                    .allowsHitTesting(false)
+            }
         }
         .frame(width: size, height: size)
         .onAppear {
@@ -214,6 +237,18 @@ struct ScoreGauge: View {
             withAnimation(.easeOut(duration: 1.5).delay(0.1)) {
                 animatedScore = normalizedScore
             }
+
+            // Trigger confetti for excellent scores after animation completes
+            if normalizedScore >= 80 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                    showConfetti = true
+
+                    // Auto-dismiss confetti after 2 seconds
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        showConfetti = false
+                    }
+                }
+            }
         }
     }
 
@@ -221,6 +256,37 @@ struct ScoreGauge: View {
         let targetScore = min(max(newScore, 0), 100)
         withAnimation(.easeInOut(duration: 0.8)) {
             animatedScore = targetScore
+        }
+    }
+
+    @ViewBuilder
+    private func confidenceBadge(for confidence: ScoreConfidence) -> some View {
+        let badgeSize = size * 0.22
+        let (letter, color, bgColor) = confidenceBadgeStyle(for: confidence)
+
+        ZStack {
+            Circle()
+                .fill(bgColor)
+                .frame(width: badgeSize, height: badgeSize)
+
+            Circle()
+                .strokeBorder(Color.white, lineWidth: 1.5)
+                .frame(width: badgeSize, height: badgeSize)
+
+            Text(letter)
+                .font(.system(size: badgeSize * 0.5, weight: .bold))
+                .foregroundColor(color)
+        }
+    }
+
+    private func confidenceBadgeStyle(for confidence: ScoreConfidence) -> (String, Color, Color) {
+        switch confidence {
+        case .high:
+            return ("H", .green, Color.green.opacity(0.15))
+        case .medium:
+            return ("M", .orange, Color.orange.opacity(0.15))
+        case .low:
+            return ("L", .red, Color.red.opacity(0.15))
         }
     }
 }

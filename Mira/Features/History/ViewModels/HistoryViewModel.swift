@@ -7,6 +7,8 @@ final class HistoryViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var currentHealthFocus: String = "generalWellness"
     @Published var items: [HistoryItem] = []
+    @Published var patterns: [HistoryPattern] = []
+    @Published var selectedTimeframe: TimeframeFilter = .week
 
     private let coreDataManager: CoreDataManager
 
@@ -47,7 +49,7 @@ final class HistoryViewModel: ObservableObject {
                             dprint("📊 History - Protein: \(nd.protein)g, Fiber: \(nd.fiber)g, Sugar: \(nd.sugar)g")
 
                             // Recompute score for verification in logs
-                            let focus = mapHealthFocus(from: currentHealthFocus)
+                            let focus = HealthFocus(fromStored: currentHealthFocus)
                             let model = makeProductModel(from: product)
                             let score = ScoringEngine.shared.calculateHealthScore(
                                 for: model,
@@ -103,10 +105,9 @@ final class HistoryViewModel: ObservableObject {
 
     func updateCurrentHealthFocus(_ focus: String) {
         currentHealthFocus = focus
-        items = items.map { old in
-            var updated = old
-            updated.currentHealthFocus = focus
-            return updated
+        // Update each item's health focus - caching handles score invalidation
+        for item in items {
+            item.currentHealthFocus = focus
         }
     }
 
@@ -133,6 +134,19 @@ final class HistoryViewModel: ObservableObject {
         }
         dprint("📊 Final history items: \(built.count)")
         self.items = built
+        analyzePatterns()
+    }
+
+    func analyzePatterns() {
+        patterns = HistoryPatternAnalyzer.analyzePatterns(
+            items: items,
+            timeframe: selectedTimeframe
+        )
+    }
+
+    func updateTimeframe(_ timeframe: TimeframeFilter) {
+        selectedTimeframe = timeframe
+        analyzePatterns()
     }
 
     // MARK: - Debugging
@@ -193,21 +207,11 @@ final class HistoryViewModel: ObservableObject {
         )
     }
 
-    private func mapHealthFocus(from string: String) -> HealthFocus {
-        switch string {
-        case "gutHealth", "gut_health": return .gutHealth
-        case "weightLoss", "weight_loss": return .weightLoss
-        case "proteinFocus", "protein_focus": return .proteinFocus
-        case "heartHealth", "heart_health": return .heartHealth
-        case "generalWellness", "general_wellness": return .generalWellness
-        default: return .generalWellness
-        }
-    }
 
-    // DEBUG-only print helper
+    // DEBUG-only logging helper using AppLog
     private func dprint(_ message: @autoclosure () -> String) {
         #if DEBUG
-        print(message())
+        AppLog.debug(message(), category: .scoring)
         #endif
     }
 }

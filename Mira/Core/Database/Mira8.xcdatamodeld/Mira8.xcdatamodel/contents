@@ -8,9 +8,11 @@
         <attribute name="category" optional="YES" attributeType="String"/>
         <attribute name="nutritionalData" optional="NO" attributeType="Binary" allowsExternalBinaryDataStorage="YES"/>
         <attribute name="ingredients" optional="YES" attributeType="String"/>
+        <attribute name="servingSize" optional="YES" attributeType="String"/>
         <attribute name="lastScanned" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="imageURL" optional="YES" attributeType="String"/>
         <attribute name="thumbnailURL" optional="YES" attributeType="String"/>
+        <attribute name="nutriScore" optional="YES" attributeType="String"/>
         <attribute name="isFavorite" optional="NO" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <relationship name="scanHistory" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="ScanHistoryEntity" inverseName="product" inverseEntity="ScanHistoryEntity"/>
     </entity>

@@ -2,18 +2,30 @@ import Foundation
 
 /// Represents the overall health score for a product with detailed breakdown
 struct HealthScore {
+    let rawScore: Double
     let overall: Double
-    let components: ScoreComponents
+    let tier: ScoreTier
+    let grade: ScoreGrade
     let explanation: String
-    let focus: HealthFocus
-    /// Detailed breakdown showing how each component contributed to the overall score
-    let breakdown: [ComponentBreakdown]
-    /// All adjustments made during scoring (e.g., heart-health bonuses/penalties)
-    let adjustments: [ScoreAdjustment]
-    /// Confidence level in the score based on data completeness
     let confidence: ScoreConfidence
-    /// Warning message when data is incomplete or limited
     let confidenceWarning: String?
+    let confidenceRange: ClosedRange<Double>
+    let rawPositivePoints: Double
+    let rawNegativePoints: Double
+    let weightedPositivePoints: Double
+    let weightedNegativePoints: Double
+    let contributions: [NutrientContribution]
+    let breakdown: [ComponentBreakdown]
+    let adjustments: [ScoreAdjustment]
+    let topReasons: [String]
+    let uxMessages: [String]
+    let components: ScoreComponents
+    let scoringResult: ScoringResult?
+    let verdict: ScoreVerdict
+    let simplifiedDisplay: SimplifiedScoreDisplay
+    let categoryPercentile: Double?
+    let categoryRank: String?
+    let nutriScoreVerdict: NutriScoreVerdict
 }
 
 struct ScoreComponents {
@@ -66,32 +78,48 @@ enum ScoreConfidence: String {
     }
 }
 
-struct ScoreBreakdown {
-    let component: String
-    let score: Double
-    let maxScore: Double
+/// Contribution from a specific nutrient to the health score
+struct NutrientContribution: Codable, Identifiable {
+    enum Kind: String, Codable {
+        case positive
+        case negative
+    }
+
+    enum Nutrient: String, Codable {
+        case energy
+        case sugars
+        case saturatedFat
+        case sodium
+        case fiber
+        case protein
+        case fruitVegLegumeNut
+    }
+
+    var id: String { "\(nutrient.rawValue)_\(label)" }
+
+    let kind: Kind
+    let nutrient: Nutrient
+    let label: String
+    let rawPoints: Int
+    let maxPoints: Int
     let weight: Double
-    let weightedScore: Double
+    let weightedPoints: Double
+    let value: Double?
+    let unit: String
     let explanation: String
-    let color: ScoreColor
+    let guideline: String
+    let dataAvailable: Bool
+    let modifiers: [String]
 }
 
-enum ScoreColor {
-    case excellent // 80-100
-    case good      // 60-79
-    case fair      // 40-59
-    case poor      // 0-39
-
-    static func from(score: Double) -> ScoreColor {
-        switch score {
-        case 80...100:
-            return .excellent
-        case 60..<80:
-            return .good
-        case 40..<60:
-            return .fair
-        default:
-            return .poor
-        }
+extension ScoreComponents {
+    static var empty: ScoreComponents {
+        ScoreComponents(
+            macronutrientBalance: ComponentScore(score: 0, weight: 0, explanation: "", recommendations: []),
+            micronutrientDensity: ComponentScore(score: 0, weight: 0, explanation: "", recommendations: []),
+            processingLevel: ComponentScore(score: 0, weight: 0, explanation: "", recommendations: []),
+            ingredientQuality: ComponentScore(score: 0, weight: 0, explanation: "", recommendations: []),
+            additives: ComponentScore(score: 0, weight: 0, explanation: "", recommendations: [])
+        )
     }
 }

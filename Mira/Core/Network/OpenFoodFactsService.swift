@@ -120,6 +120,88 @@ actor OpenFoodFactsService {
         return product
     }
 
+    /// Search products with structured filters from natural language query
+    /// - Parameters:
+    ///   - filters: Parsed search filters
+    ///   - limit: Maximum number of results
+    /// - Returns: Array of products matching the filters
+    func searchWithFilters(_ filters: SearchFilters, limit: Int = 30) async throws -> [APIProduct] {
+        AppLog.debug("🔍 OFF: Search with filters, limit=\(limit)", category: .network)
+        AppLog.debug("🔍 Filters: categories=\(filters.categories), terms=\(filters.searchTerms)", category: .network)
+
+        let endpoint = OpenFoodFactsEndpoint.searchWithFilters(filters: filters, limit: limit)
+        let data = try await apiClient.requestData(endpoint)
+
+        let response: OpenFoodFactsSearchResponse = try JSONDecoder().decode(OpenFoodFactsSearchResponse.self, from: data)
+        let products = response.products ?? []
+        AppLog.debug("🔍 OFF: Raw products returned: \(products.count)", category: .network)
+
+        let mapped: [APIProduct] = products.compactMap { product in
+            guard let mapped = try? mapToProduct(product) else { return nil }
+            return mapped
+        }
+
+        // Apply additional nutritional filters client-side
+        let filtered = applyNutritionalFilters(mapped, filters: filters)
+        AppLog.debug("🔍 OFF: After nutritional filters: \(filtered.count)", category: .network)
+
+        return filtered
+    }
+
+    /// Search products by name and optional brand
+    /// - Parameters:
+    ///   - name: Product name to search
+    ///   - brand: Optional brand name
+    ///   - limit: Maximum results
+    /// - Returns: Array of matching products
+    func searchByName(name: String, brand: String? = nil, limit: Int = 20) async throws -> [APIProduct] {
+        AppLog.debug("🔍 OFF: Search by name=\(name), brand=\(brand ?? "nil"), limit=\(limit)", category: .network)
+
+        let endpoint = OpenFoodFactsEndpoint.searchByName(name: name, brand: brand, limit: limit)
+        let data = try await apiClient.requestData(endpoint)
+
+        let response: OpenFoodFactsSearchResponse = try JSONDecoder().decode(OpenFoodFactsSearchResponse.self, from: data)
+        let products = response.products ?? []
+        AppLog.debug("🔍 OFF: Raw products returned: \(products.count)", category: .network)
+
+        return products.compactMap { try? mapToProduct($0) }
+    }
+
+    private func applyNutritionalFilters(_ products: [APIProduct], filters: SearchFilters) -> [APIProduct] {
+        guard filters.hasNutritionalFilters else { return products }
+
+        return products.filter { product in
+            let nutrition = product.nutritionalData
+
+            // Calories filter
+            if let min = filters.caloriesMin, nutrition.calories < min { return false }
+            if let max = filters.caloriesMax, nutrition.calories > max { return false }
+
+            // Protein filter
+            if let min = filters.proteinMin, nutrition.protein < min { return false }
+            if let max = filters.proteinMax, nutrition.protein > max { return false }
+
+            // Carbs filter
+            if let min = filters.carbsMin, nutrition.carbohydrates < min { return false }
+            if let max = filters.carbsMax, nutrition.carbohydrates > max { return false }
+
+            // Fat filter
+            if let min = filters.fatMin, nutrition.fat < min { return false }
+            if let max = filters.fatMax, nutrition.fat > max { return false }
+
+            // Fiber filter
+            if let min = filters.fiberMin, nutrition.fiber < min { return false }
+
+            // Sugar filter
+            if let max = filters.sugarMax, nutrition.sugar > max { return false }
+
+            // Sodium filter (convert mg to g for comparison)
+            if let max = filters.sodiumMax, (nutrition.sodium * 1000) > max { return false }
+
+            return true
+        }
+    }
+
     func searchSimilarProducts(category: String, limit: Int = 20) async throws -> [APIProduct] {
         AppLog.debug("🌐 OFF: Search similar by category slug=\(category), limit=\(limit)", category: .network)
         let endpoint = OpenFoodFactsEndpoint.searchByCategory(category: category, limit: limit)
@@ -167,6 +249,8 @@ actor OpenFoodFactsService {
 private enum OpenFoodFactsEndpoint: APIEndpoint {
     case productByBarcode(barcode: String)
     case searchByCategory(category: String, limit: Int)
+    case searchWithFilters(filters: SearchFilters, limit: Int)
+    case searchByName(name: String, brand: String?, limit: Int)
 
     var baseURL: String {
         return Constants.API.openFoodFactsBaseURL
@@ -176,15 +260,18 @@ private enum OpenFoodFactsEndpoint: APIEndpoint {
         switch self {
         case .productByBarcode(let barcode):
             return "/api/v2/product/\(barcode)"
-        case .searchByCategory:
+        case .searchByCategory, .searchWithFilters, .searchByName:
             return "/cgi/search.pl"
         }
     }
+
+    private static let standardFields = "product_name,product_name_en,generic_name,generic_name_en,brands,brand_owner,brand_owner_imported,categories,categories_hierarchy,_keywords,pnns_groups_2,ingredients_text,ingredients_text_en,nutriments,serving_size,serving_quantity,code,image_url,image_front_url,image_small_url,selected_images,nutriscore_grade,countries,countries_tags,nova_group"
 
     var queryItems: [URLQueryItem]? {
         switch self {
         case .productByBarcode:
             return nil
+
         case .searchByCategory(let category, let limit):
             return [
                 URLQueryItem(name: "action", value: "process"),
@@ -194,12 +281,82 @@ private enum OpenFoodFactsEndpoint: APIEndpoint {
                 URLQueryItem(name: "tag_contains_0", value: "contains"),
                 URLQueryItem(name: "tag_0", value: category),
                 URLQueryItem(name: "sort_by", value: "popularity"),
-                URLQueryItem(
-                    name: "fields",
-                    value: "product_name,product_name_en,generic_name,generic_name_en,brands,brand_owner,brand_owner_imported,categories,categories_hierarchy,_keywords,pnns_groups_2,ingredients_text,ingredients_text_en,nutriments,serving_size,serving_quantity,code,image_url,image_front_url,image_small_url,selected_images,nutriscore_grade,countries,countries_tags"
-                )
+                URLQueryItem(name: "fields", value: Self.standardFields)
             ]
+
+        case .searchWithFilters(let filters, let limit):
+            return buildFilterQueryItems(filters: filters, limit: limit)
+
+        case .searchByName(let name, let brand, let limit):
+            var items: [URLQueryItem] = [
+                URLQueryItem(name: "action", value: "process"),
+                URLQueryItem(name: "json", value: "1"),
+                URLQueryItem(name: "page_size", value: "\(limit)"),
+                URLQueryItem(name: "search_terms", value: name),
+                URLQueryItem(name: "sort_by", value: "unique_scans_n"),
+                URLQueryItem(name: "fields", value: Self.standardFields)
+            ]
+
+            if let brand = brand, !brand.isEmpty {
+                items.append(URLQueryItem(name: "tagtype_0", value: "brands"))
+                items.append(URLQueryItem(name: "tag_contains_0", value: "contains"))
+                items.append(URLQueryItem(name: "tag_0", value: brand))
+            }
+
+            return items
         }
+    }
+
+    private func buildFilterQueryItems(filters: SearchFilters, limit: Int) -> [URLQueryItem] {
+        var items: [URLQueryItem] = [
+            URLQueryItem(name: "action", value: "process"),
+            URLQueryItem(name: "json", value: "1"),
+            URLQueryItem(name: "page_size", value: "\(limit)"),
+            URLQueryItem(name: "sort_by", value: "popularity"),
+            URLQueryItem(name: "fields", value: Self.standardFields)
+        ]
+
+        // Add search terms
+        if !filters.searchTerms.isEmpty {
+            items.append(URLQueryItem(name: "search_terms", value: filters.searchTerms.joined(separator: " ")))
+        }
+
+        // Add category filters
+        var tagIndex = 0
+        let resolvedCategories = SearchFilters.resolveCategories(filters.categories)
+        for category in resolvedCategories.prefix(2) {
+            items.append(URLQueryItem(name: "tagtype_\(tagIndex)", value: "categories"))
+            items.append(URLQueryItem(name: "tag_contains_\(tagIndex)", value: "contains"))
+            items.append(URLQueryItem(name: "tag_\(tagIndex)", value: category))
+            tagIndex += 1
+        }
+
+        // Add dietary labels if applicable
+        let labelMappings: [String: String] = [
+            "vegan": "en:vegan",
+            "vegetarian": "en:vegetarian",
+            "gluten_free": "en:gluten-free",
+            "dairy_free": "en:dairy-free",
+            "nut_free": "en:no-nuts"
+        ]
+
+        for restriction in filters.dietaryRestrictions.prefix(2) {
+            if let label = labelMappings[restriction] {
+                items.append(URLQueryItem(name: "tagtype_\(tagIndex)", value: "labels"))
+                items.append(URLQueryItem(name: "tag_contains_\(tagIndex)", value: "contains"))
+                items.append(URLQueryItem(name: "tag_\(tagIndex)", value: label))
+                tagIndex += 1
+            }
+        }
+
+        // Add nutritional criteria for sorting if relevant
+        if filters.proteinMin != nil {
+            items.append(URLQueryItem(name: "nutriment_0", value: "proteins"))
+            items.append(URLQueryItem(name: "nutriment_compare_0", value: "gt"))
+            items.append(URLQueryItem(name: "nutriment_value_0", value: "\(Int(filters.proteinMin ?? 0))"))
+        }
+
+        return items
     }
 
     var headers: [String: String]? {

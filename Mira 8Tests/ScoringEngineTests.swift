@@ -20,6 +20,7 @@ final class ScoringEngineTests: XCTestCase {
         // When: Calculating the health score
         let score = ScoringEngine.shared.calculateHealthScore(
             for: product,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         
@@ -38,10 +39,12 @@ final class ScoringEngineTests: XCTestCase {
         // When: Calculating scores
         let lowSodiumScore = ScoringEngine.shared.calculateHealthScore(
             for: lowSodiumProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         let highSodiumScore = ScoringEngine.shared.calculateHealthScore(
             for: highSodiumProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         
@@ -61,10 +64,12 @@ final class ScoringEngineTests: XCTestCase {
         // When: Calculating scores
         let lowSugarScore = ScoringEngine.shared.calculateHealthScore(
             for: lowSugarProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         let highSugarScore = ScoringEngine.shared.calculateHealthScore(
             for: highSugarProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         
@@ -84,10 +89,12 @@ final class ScoringEngineTests: XCTestCase {
         // When: Calculating scores
         let lowProteinScore = ScoringEngine.shared.calculateHealthScore(
             for: lowProteinProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         let highProteinScore = ScoringEngine.shared.calculateHealthScore(
             for: highProteinProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         
@@ -107,10 +114,12 @@ final class ScoringEngineTests: XCTestCase {
         // When: Calculating scores
         let lowFiberScore = ScoringEngine.shared.calculateHealthScore(
             for: lowFiberProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         let highFiberScore = ScoringEngine.shared.calculateHealthScore(
             for: highFiberProduct,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         
@@ -134,6 +143,7 @@ final class ScoringEngineTests: XCTestCase {
         // When: Calculating the score
         let score = ScoringEngine.shared.calculateHealthScore(
             for: product,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         
@@ -152,6 +162,7 @@ final class ScoringEngineTests: XCTestCase {
         // When: Calculating the score
         let score = ScoringEngine.shared.calculateHealthScore(
             for: product,
+            healthFocus: .generalWellness,
             dietaryRestrictions: []
         )
         

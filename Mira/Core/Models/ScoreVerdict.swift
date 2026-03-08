@@ -1,5 +1,42 @@
 import Foundation
 
+/// NutriScore verdict based on A-E grading system
+enum NutriScoreVerdict: String, Codable {
+    case excellent = "A"  // NutriScore A
+    case good = "B"       // NutriScore B
+    case fair = "C"       // NutriScore C
+    case poor = "D"       // NutriScore D
+    case avoid = "E"      // NutriScore E
+    case unknown = "?"    // Unknown/unavailable
+
+    var displayName: String {
+        switch self {
+        case .excellent: return "A"
+        case .good: return "B"
+        case .fair: return "C"
+        case .poor: return "D"
+        case .avoid: return "E"
+        case .unknown: return "?"
+        }
+    }
+
+    var displayLabel: String {
+        displayName
+    }
+
+    /// Initialize from NutriScore string (A, B, C, D, E, or empty/unknown)
+    init(from nutriScore: String) {
+        switch nutriScore.uppercased() {
+        case "A": self = .excellent
+        case "B": self = .good
+        case "C": self = .fair
+        case "D": self = .poor
+        case "E": self = .avoid
+        default: self = .unknown
+        }
+    }
+}
+
 /// Simple, user-friendly verdict for grocery store decision-making
 enum ScoreVerdict: String, Codable {
     case excellent  // 85-100
@@ -25,22 +62,23 @@ enum ScoreVerdict: String, Codable {
     }
     
     /// Short, actionable message for quick decisions
+    /// Uses positive, anxiety-reducing language
     var message: String {
         switch self {
         case .excellent:
             return "Great choice!"
         case .good:
-            return "Solid option"
+            return "Solid option for your goals"
         case .okay:
-            return "Okay in moderation"
+            return "Good choice! See alternatives for even better options"
         case .fair:
-            return "Consider alternatives"
+            return "Okay in moderation. For better fits, check alternatives below"
         case .avoid:
-            return "Look for better options"
+            return "Not the best fit for your goals. Let's find a better match"
         }
     }
     
-    /// Display label
+    /// Display label (neutral, non-judgmental)
     var label: String {
         switch self {
         case .excellent:
@@ -52,7 +90,7 @@ enum ScoreVerdict: String, Codable {
         case .fair:
             return "Fair"
         case .avoid:
-            return "Avoid"
+            return "Poor" // Less judgmental than "Avoid"
         }
     }
     

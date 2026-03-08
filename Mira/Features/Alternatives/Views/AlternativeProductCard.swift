@@ -28,7 +28,7 @@ struct AlternativeProductCard: View {
             }
 
             // Product details
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(alternative.product.name)
                     .font(.bodyMedium)
                     .fontWeight(.semibold)
@@ -42,13 +42,35 @@ struct AlternativeProductCard: View {
                         .lineLimit(1)
                 }
 
-                // Key improvements
+                // "Why it's better" section
                 if !alternative.improvementReasons.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(alternative.improvementReasons, id: \.self) { reason in
-                            improvementTag(reason, color: tagColor(for: reason))
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.caption2)
+                                .foregroundColor(.green)
+                            Text("Why it's better:")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.textSecondary)
+                        }
+
+                        ForEach(alternative.improvementReasons.prefix(3), id: \.self) { reason in
+                            HStack(alignment: .top, spacing: 4) {
+                                Text("•")
+                                    .font(.caption2)
+                                    .foregroundColor(.green)
+                                Text(reason)
+                                    .font(.caption2)
+                                    .foregroundColor(.textSecondary)
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
+                    .padding(6)
+                    .background(Color.green.opacity(0.06))
+                    .cornerRadius(6)
                 }
             }
 
@@ -149,9 +171,9 @@ struct AlternativeProductCard: View {
         AlternativeProductCard(
             alternative: AlternativeProduct(
                 product: base,
-                healthScore: HealthFocusScorer(config: ScoringConfiguration.defaultConfiguration).calculateScore(
+                healthScore: ScoringEngine.shared.calculateHealthScore(
                     for: base,
-                    focus: .generalWellness,
+                    healthFocus: .generalWellness,
                     dietaryRestrictions: []
                 ),
                 improvement: 12,
@@ -196,9 +218,9 @@ struct AlternativeProductCard: View {
         AlternativeProductCard(
             alternative: AlternativeProduct(
                 product: base2,
-                healthScore: HealthFocusScorer(config: ScoringConfiguration.defaultConfiguration).calculateScore(
+                healthScore: ScoringEngine.shared.calculateHealthScore(
                     for: base2,
-                    focus: .generalWellness,
+                    healthFocus: .generalWellness,
                     dietaryRestrictions: []
                 ),
                 improvement: 6,

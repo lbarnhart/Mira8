@@ -7,9 +7,10 @@ struct SettingsView: View {
     @State private var showingHealthProfile = false
     @State private var showingDietaryRestrictions = false
     @State private var showingAbout = false
+    @State private var showingMore = false
 
     private var selectedHealthFocus: HealthFocus {
-        get { mapHealthFocus(selectedHealthFocusIdentifier) }
+        get { HealthFocus(fromStored: selectedHealthFocusIdentifier) }
         set { selectedHealthFocusIdentifier = newValue.rawValue }
     }
 
@@ -21,23 +22,14 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: Spacing.xl) {
                     // Profile Section
                     profileSection
 
-                    // Preferences Section
-                    preferencesSection
-
-                    // Data & Privacy Section
-                    dataPrivacySection
-
-                    // Support Section
-                    supportSection
-
-                    // App Info
-                    appInfoSection
+                    // More Section - links to additional settings
+                    moreSection
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xl)
@@ -56,8 +48,23 @@ struct SettingsView: View {
                 saveDietaryRestrictions()
             }
         }
+        .sheet(isPresented: $showingMore) {
+            MoreSettingsSheet(showingAbout: $showingAbout)
+        }
         .sheet(isPresented: $showingAbout) {
             AboutSheet()
+        }
+    }
+
+    private var moreSection: some View {
+        SettingsSection(title: "More") {
+            SettingsRow(
+                icon: "ellipsis.circle.fill",
+                iconColor: .textSecondary,
+                title: "More Settings",
+                subtitle: "Preferences, Privacy, Support",
+                action: { showingMore = true }
+            )
         }
     }
 
@@ -89,9 +96,7 @@ struct SettingsView: View {
                 title: "Notifications",
                 subtitle: "Scan reminders, health tips",
                 action: {
-                    #if DEBUG
-                    print("Notifications tapped")
-                    #endif
+                    // TODO: Implement notifications settings
                 }
             )
 
@@ -101,9 +106,7 @@ struct SettingsView: View {
                 title: "Dark Mode",
                 subtitle: "Automatic",
                 action: {
-                    #if DEBUG
-                    print("Dark mode tapped")
-                    #endif
+                    // TODO: Implement dark mode settings
                 }
             )
 
@@ -113,9 +116,7 @@ struct SettingsView: View {
                 title: "Text Size",
                 subtitle: "Medium",
                 action: {
-                    #if DEBUG
-                    print("Text size tapped")
-                    #endif
+                    // TODO: Implement text size settings
                 }
             )
         }
@@ -129,9 +130,7 @@ struct SettingsView: View {
                 title: "Sync Data",
                 subtitle: "iCloud enabled",
                 action: {
-                    #if DEBUG
-                    print("Sync data tapped")
-                    #endif
+                    // TODO: Implement iCloud sync settings
                 }
             )
 
@@ -140,9 +139,7 @@ struct SettingsView: View {
                 title: "Clear History",
                 subtitle: "Remove all scanned products"
             ) {
-                #if DEBUG
-                print("Clear history tapped")
-                #endif
+                // TODO: Implement clear history with confirmation
             }
 
             SettingsRow(
@@ -151,9 +148,7 @@ struct SettingsView: View {
                 title: "Privacy Policy",
                 subtitle: "How we protect your data",
                 action: {
-                    #if DEBUG
-                    print("Privacy policy tapped")
-                    #endif
+                    // TODO: Open privacy policy URL
                 }
             )
         }
@@ -167,9 +162,7 @@ struct SettingsView: View {
                 title: "Help Center",
                 subtitle: "FAQ and guides",
                 action: {
-                    #if DEBUG
-                    print("Help center tapped")
-                    #endif
+                    // TODO: Open help center URL
                 }
             )
 
@@ -179,9 +172,7 @@ struct SettingsView: View {
                 title: "Contact Us",
                 subtitle: "Get support",
                 action: {
-                    #if DEBUG
-                    print("Contact us tapped")
-                    #endif
+                    // TODO: Open contact/support email
                 }
             )
 
@@ -191,9 +182,7 @@ struct SettingsView: View {
                 title: "Rate App",
                 subtitle: "Share your feedback",
                 action: {
-                    #if DEBUG
-                    print("Rate app tapped")
-                    #endif
+                    // TODO: Open App Store rating
                 }
             )
         }
@@ -215,9 +204,7 @@ struct SettingsView: View {
                 title: "Terms of Service",
                 subtitle: "Legal information",
                 action: {
-                    #if DEBUG
-                    print("Terms tapped")
-                    #endif
+                    // TODO: Open terms of service URL
                 }
             )
         }
@@ -233,16 +220,6 @@ struct SettingsView: View {
         }
     }
 
-    private func mapHealthFocus(_ value: String) -> HealthFocus {
-        switch value {
-        case "gutHealth", "gut_health": return .gutHealth
-        case "weightLoss", "weight_loss": return .weightLoss
-        case "proteinFocus", "protein_focus": return .proteinFocus
-        case "heartHealth", "heart_health": return .heartHealth
-        case "generalWellness", "general_wellness": return .generalWellness
-        default: return .generalWellness
-        }
-    }
 
     private func loadDietaryRestrictions() {
         if let decoded = try? JSONDecoder().decode(Set<DietaryRestriction>.self, from: dietaryRestrictionsData) {
@@ -263,72 +240,75 @@ struct HealthProfileSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: Spacing.lg) {
-                VStack(spacing: Spacing.md) {
-                    Text("Choose Your Health Focus")
-                        .headlineMediumStyle()
-                        .multilineTextAlignment(.center)
-
-                    Text("This helps us provide personalized recommendations for your health goals.")
-                        .bodyMediumStyle()
-                        .foregroundColor(.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.top, Spacing.lg)
-
-                VStack(spacing: Spacing.sm) {
-                    ForEach(HealthFocus.allCases, id: \.self) { focus in
-                        Button {
-                            selectedFocus = focus
-                        } label: {
-                            HStack(spacing: Spacing.md) {
-                                VStack(alignment: .leading, spacing: Spacing.xs) {
-                                    HStack {
-                                        Text(focus.displayName)
-                                            .bodyMediumStyle()
-                                            .foregroundColor(.textPrimary)
-
-                                        Spacer()
-
-                                        if selectedFocus == focus {
-                                            Image(systemName: "checkmark")
-                                                .foregroundColor(.oceanTeal)
-                                                .font(.system(size: 16, weight: .medium))
-                                        }
-                                    }
-
-                                    Text(focus.detailDescription)
-                                        .font(.subheadline)
-                                        .foregroundColor(.textSecondary)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            .padding(Spacing.md)
-                        }
-                        .buttonStyle(.plain)
-                        .standardCard()
-                    }
-                }
+        VStack(spacing: Spacing.lg) {
+            // Header with close button
+            HStack {
+                Text("Health Focus")
+                    .headlineMediumStyle()
 
                 Spacer()
 
-                PrimaryButton("Save", style: .primary) {
+                Button {
                     dismiss()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title3)
+                        .foregroundColor(.textTertiary)
                 }
-                .padding(.horizontal, Spacing.lg)
             }
             .padding(.horizontal, Spacing.lg)
-            .navigationTitle("Health Focus")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Cancel") {
-                        dismiss()
+            .padding(.top, Spacing.lg)
+
+            VStack(spacing: Spacing.md) {
+                Text("Choose Your Health Focus")
+                    .bodyLargeStyle()
+                    .multilineTextAlignment(.center)
+
+                Text("This helps us provide personalized recommendations for your health goals.")
+                    .bodyMediumStyle()
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, Spacing.lg)
+
+            VStack(spacing: Spacing.sm) {
+                ForEach(HealthFocus.allCases, id: \.self) { focus in
+                    Button {
+                        selectedFocus = focus
+                    } label: {
+                        HStack(spacing: Spacing.md) {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
+                                Text(focus.displayName)
+                                    .bodyMediumStyle()
+                                    .foregroundColor(.textPrimary)
+
+                                // Active icon in place of description
+                                if selectedFocus == focus {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.oceanTeal)
+                                        .font(.system(size: 18, weight: .medium))
+                                }
+                            }
+
+                            Spacer()
+                        }
+                        .padding(Spacing.md)
                     }
+                    .buttonStyle(.plain)
+                    .standardCard()
                 }
             }
+            .padding(.horizontal, Spacing.lg)
+
+            Spacer()
+
+            PrimaryButton("Save", style: .primary) {
+                dismiss()
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.lg)
         }
+        .background(Color.backgroundPrimary.ignoresSafeArea())
     }
 }
 
@@ -338,7 +318,7 @@ struct DietaryRestrictionsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(spacing: Spacing.lg) {
                 VStack(spacing: Spacing.md) {
                     Text("Select Dietary Restrictions")
@@ -403,11 +383,174 @@ struct DietaryRestrictionsSheet: View {
     }
 }
 
+struct MoreSettingsSheet: View {
+    @Binding var showingAbout: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: Spacing.xl) {
+                    // Preferences Section
+                    preferencesSection
+
+                    // Data & Privacy Section
+                    dataPrivacySection
+
+                    // Support Section
+                    supportSection
+
+                    // App Info
+                    appInfoSection
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.xl)
+            }
+            .navigationTitle("More")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private var preferencesSection: some View {
+        SettingsSection(title: "Preferences") {
+            SettingsRow(
+                icon: "bell.fill",
+                iconColor: .warning,
+                title: "Notifications",
+                subtitle: "Scan reminders, health tips",
+                action: {
+                    // TODO: Implement notifications settings
+                }
+            )
+
+            SettingsRow(
+                icon: "moon.fill",
+                iconColor: .primary,
+                title: "Dark Mode",
+                subtitle: "Automatic",
+                action: {
+                    // TODO: Implement dark mode settings
+                }
+            )
+
+            SettingsRow(
+                icon: "textformat.size",
+                iconColor: .oceanTeal,
+                title: "Text Size",
+                subtitle: "Medium",
+                action: {
+                    // TODO: Implement text size settings
+                }
+            )
+        }
+    }
+
+    private var dataPrivacySection: some View {
+        SettingsSection(title: "Data & Privacy") {
+            SettingsRow(
+                icon: "icloud.fill",
+                iconColor: .info,
+                title: "Sync Data",
+                subtitle: "iCloud enabled",
+                action: {
+                    // TODO: Implement iCloud sync settings
+                }
+            )
+
+            DestructiveSettingsRow(
+                icon: "trash.fill",
+                title: "Clear History",
+                subtitle: "Remove all scanned products"
+            ) {
+                // TODO: Implement clear history with confirmation
+            }
+
+            SettingsRow(
+                icon: "doc.text.fill",
+                iconColor: .textSecondary,
+                title: "Privacy Policy",
+                subtitle: "How we protect your data",
+                action: {
+                    // TODO: Open privacy policy URL
+                }
+            )
+        }
+    }
+
+    private var supportSection: some View {
+        SettingsSection(title: "Support") {
+            SettingsRow(
+                icon: "questionmark.circle.fill",
+                iconColor: .info,
+                title: "Help Center",
+                subtitle: "FAQ and guides",
+                action: {
+                    // TODO: Open help center URL
+                }
+            )
+
+            SettingsRow(
+                icon: "envelope.fill",
+                iconColor: .oceanTeal,
+                title: "Contact Us",
+                subtitle: "Get support",
+                action: {
+                    // TODO: Open contact/support email
+                }
+            )
+
+            SettingsRow(
+                icon: "star.fill",
+                iconColor: .warning,
+                title: "Rate App",
+                subtitle: "Share your feedback",
+                action: {
+                    // TODO: Open App Store rating
+                }
+            )
+        }
+    }
+
+    private var appInfoSection: some View {
+        SettingsSection(title: "App Info") {
+            SettingsRow(
+                icon: "info.circle.fill",
+                iconColor: .textSecondary,
+                title: "About Mira",
+                subtitle: "Version 1.0.0",
+                action: {
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showingAbout = true
+                    }
+                }
+            )
+
+            SettingsRow(
+                icon: "doc.fill",
+                iconColor: .textSecondary,
+                title: "Terms of Service",
+                subtitle: "Legal information",
+                action: {
+                    // TODO: Open terms of service URL
+                }
+            )
+        }
+    }
+}
+
 struct AboutSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(spacing: Spacing.xl) {
                     // App Icon and Name

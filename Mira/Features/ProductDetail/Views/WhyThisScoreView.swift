@@ -20,7 +20,7 @@ struct WhyThisScoreView: View {
     }
     
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     // Score summary header
@@ -311,39 +311,5 @@ struct WhyThisScoreView: View {
     }
 }
 
-#Preview {
-    WhyThisScoreView(
-        healthScore: HealthScore(
-            rawScore: 75,
-            overall: 72,
-            tier: .good,
-            grade: .b,
-            explanation: "This product has a good nutritional profile with solid protein content.",
-            confidence: .high,
-            confidenceWarning: nil,
-            confidenceRange: 70...74,
-            rawPositivePoints: 25,
-            rawNegativePoints: 15,
-            weightedPositivePoints: 30,
-            weightedNegativePoints: 18,
-            contributions: [],
-            breakdown: [],
-            adjustments: [],
-            topReasons: ["✓ Good protein content (8g)", "⚠️ Moderate sugar (12g)"],
-            uxMessages: [],
-            components: .empty,
-            scoringResult: nil,
-            verdict: .good,
-            simplifiedDisplay: SimplifiedScoreDisplay(
-                score: 72,
-                verdict: .good,
-                topFactors: ["Good protein", "Moderate sugar"],
-                categoryContext: "Top 30% of yogurts"
-            ),
-            categoryPercentile: 70,
-            categoryRank: "Top 30% of yogurts",
-            nutriScoreVerdict: .good
-        ),
-        productName: "Greek Yogurt"
-    )
-}
+// Preview temporarily disabled during HealthScore model refactor
+// TODO: Update preview once HealthScore model is finalized

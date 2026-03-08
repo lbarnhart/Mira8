@@ -21,7 +21,14 @@ final class ScoringEngine {
     static let shared = ScoringEngine()
 
     private let config: ScoringConfiguration
-    private let healthFocusScorer: HealthFocusScorer
+    private let pipeline: HealthScoringPipeline
+
+    /// Cache for calculated scores, keyed by "barcode_healthFocus"
+    private var scoreCache: [String: HealthScore] = [:]
+    private let cacheLock = NSLock()
+
+    /// Maximum cache size before clearing old entries
+    private let maxCacheSize = 500
 
     private init() {
         do {
@@ -30,7 +37,7 @@ final class ScoringEngine {
             AppLog.warning("Failed to load scoring configuration, using defaults: \(error.localizedDescription)", category: .scoring)
             self.config = ScoringConfiguration.defaultConfiguration
         }
-        self.healthFocusScorer = HealthFocusScorer(config: config)
+        self.pipeline = HealthScoringPipeline()
     }
 
     func calculateHealthScore(
@@ -38,6 +45,18 @@ final class ScoringEngine {
         healthFocus: HealthFocus,
         dietaryRestrictions: [DietaryRestriction]
     ) -> HealthScore {
+        // Generate cache key from barcode and health focus
+        let cacheKey = "\(product.barcode)_\(healthFocus.rawValue)"
+
+        // Check cache first
+        cacheLock.lock()
+        if let cached = scoreCache[cacheKey] {
+            cacheLock.unlock()
+            return cached
+        }
+        cacheLock.unlock()
+
+        // Calculate score if not cached
         AppLog.debug("Calculating score for \(product.name) with focus \(healthFocus.rawValue)", category: .scoring)
         let n = product.nutrition
         if n.calories <= 0 && n.protein == 0 && n.fiber == 0 && n.sugar == 0 && n.sodium == 0 {
@@ -46,11 +65,36 @@ final class ScoringEngine {
             let cholesterolMg = (n.cholesterol * 1000).rounded()
             AppLog.debug("Nutrition - cals: \(n.calories), protein: \(n.protein), fiber: \(n.fiber), sugar: \(n.sugar), sodium: \(n.sodium), cholesterol: \(cholesterolMg)mg", category: .scoring)
         }
-        return healthFocusScorer.calculateScore(
+
+        let score = pipeline.score(
             for: product,
-            focus: healthFocus,
             dietaryRestrictions: dietaryRestrictions
         )
+
+        // Store in cache
+        cacheLock.lock()
+        // Clear cache if it gets too large
+        if scoreCache.count >= maxCacheSize {
+            scoreCache.removeAll()
+        }
+        scoreCache[cacheKey] = score
+        cacheLock.unlock()
+
+        return score
+    }
+
+    /// Invalidate cache for a specific product
+    func invalidateCache(for barcode: String) {
+        cacheLock.lock()
+        scoreCache = scoreCache.filter { !$0.key.hasPrefix("\(barcode)_") }
+        cacheLock.unlock()
+    }
+
+    /// Clear entire score cache
+    func clearCache() {
+        cacheLock.lock()
+        scoreCache.removeAll()
+        cacheLock.unlock()
     }
 
     func checkDietaryViolations(

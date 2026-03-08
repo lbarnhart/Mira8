@@ -2,11 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var appState: AppState
-    @State private var selectedTab = 0
 
     var body: some View {
         MiraTabBar(
-            selectedTab: $selectedTab,
+            selectedTab: $appState.selectedTab,
             tabs: [
                 TabItem(
                     title: "Scan",
@@ -16,6 +15,20 @@ struct ContentView: View {
                     LiveScannerView()
                 },
                 TabItem(
+                    title: "Search",
+                    icon: .system("magnifyingglass"),
+                    selectedIcon: .system("magnifyingglass")
+                ) {
+                    NLSearchView()
+                },
+                TabItem(
+                    title: "Insights",
+                    icon: .system("chart.bar"),
+                    selectedIcon: .system("chart.bar.fill")
+                ) {
+                    InsightsView()
+                },
+                TabItem(
                     title: "History",
                     icon: .system("clock"),
                     selectedIcon: .system("clock.fill")
@@ -23,11 +36,11 @@ struct ContentView: View {
                     HistoryView()
                 },
                 TabItem(
-                    title: "Favorites",
-                    icon: .system("heart"),
-                    selectedIcon: .system("heart.fill")
+                    title: "List",
+                    icon: .system("cart"),
+                    selectedIcon: .system("cart.fill")
                 ) {
-                    FavoritesView()
+                    ShoppingListView()
                 },
                 TabItem(
                     title: "Profile",

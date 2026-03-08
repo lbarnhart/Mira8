@@ -302,7 +302,7 @@ struct ProductComparisonView: View {
 }
 
 #Preview {
-    NavigationView {
+    NavigationStack {
         ProductComparisonView(
             comparison: ComparisonResult(
                 productA: ProductModel.mockYogurt,

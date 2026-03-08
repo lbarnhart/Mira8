@@ -1,6 +1,16 @@
 import Foundation
 import Combine
 
+/// Typed tab identifiers to avoid hardcoded index magic numbers.
+enum Tab: Int, CaseIterable {
+    case scan = 0
+    case search = 1
+    case insights = 2
+    case history = 3
+    case shoppingList = 4
+    case profile = 5
+}
+
 @MainActor
 final class AppState: ObservableObject {
     static let shared = AppState()
@@ -31,6 +41,8 @@ final class AppState: ObservableObject {
             userDefaults.set(sortedRestrictions, forKey: Constants.UserDefaults.dietaryRestrictions)
         }
     }
+
+    @Published var selectedTab: Int = 0
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults

@@ -33,13 +33,7 @@ struct DietaryRestrictionsSettingsView: View {
             .padding(Spacing.screenPadding)
         }
         .background(Color.backgroundPrimary.ignoresSafeArea())
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Back") {
-                    dismiss()
-                }
-            }
-        }
+        .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             selectedRestrictions = appState.dietaryRestrictions
         }

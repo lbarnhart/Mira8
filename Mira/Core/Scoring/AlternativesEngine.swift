@@ -106,8 +106,10 @@ final class AlternativesEngine {
             }
 
             let reasons = generateImprovementReasons(
-                original: originalScore,
-                alternative: candidateScore,
+                originalProduct: originalProduct,
+                alternativeProduct: candidate,
+                originalScore: originalScore,
+                alternativeScore: candidateScore,
                 healthFocus: healthFocus
             )
 
@@ -134,65 +136,96 @@ final class AlternativesEngine {
     }
 
     private func generateImprovementReasons(
-        original: HealthScore,
-        alternative: HealthScore,
+        originalProduct: ProductModel,
+        alternativeProduct: ProductModel,
+        originalScore: HealthScore,
+        alternativeScore: HealthScore,
         healthFocus: HealthFocus
     ) -> [String] {
         var reasons: [String] = []
 
-        let comparisons: [(name: String, original: Double, alternative: Double, labelProvider: (Double) -> String?)] = [
+        let origNutr = originalProduct.nutrition
+        let altNutr = alternativeProduct.nutrition
+
+        // Specific nutritional comparisons with numbers
+        let nutritionComparisons: [(check: Bool, reason: String)] = [
+            // Protein
             (
-                name: "nutrition",
-                original: original.components.macronutrientBalance.score,
-                alternative: alternative.components.macronutrientBalance.score,
-                labelProvider: { delta in
-                    guard delta > 8 else { return nil }
-                    switch healthFocus {
-                    case .proteinFocus:
-                        return "Higher protein quality"
-                    case .weightLoss:
-                        return "Better macro balance"
-                    case .gutHealth:
-                        return "More fiber-rich ingredients"
-                    case .heartHealth:
-                        return "Improved heart-healthy nutrient profile"
-                    case .generalWellness:
-                        return "Improved nutrition profile"
-                    }
-                }
+                altNutr.protein > origNutr.protein + 2,
+                "Higher protein (\(String(format: "%.1f", altNutr.protein))g vs \(String(format: "%.1f", origNutr.protein))g)"
             ),
+            // Fiber
             (
-                name: "processing",
-                original: original.components.processingLevel.score,
-                alternative: alternative.components.processingLevel.score,
-                labelProvider: { delta in delta > 6 ? "Less processed" : nil }
+                altNutr.fiber > origNutr.fiber + 1.5,
+                "Higher fiber (\(String(format: "%.1f", altNutr.fiber))g vs \(String(format: "%.1f", origNutr.fiber))g)"
             ),
+            // Lower sugar
             (
-                name: "ingredients",
-                original: original.components.ingredientQuality.score,
-                alternative: alternative.components.ingredientQuality.score,
-                labelProvider: { delta in delta > 6 ? "Cleaner ingredient list" : nil }
+                altNutr.sugar < origNutr.sugar - 3 && altNutr.sugar > 0,
+                "Lower sugar (\(String(format: "%.1f", altNutr.sugar))g vs \(String(format: "%.1f", origNutr.sugar))g)"
             ),
+            // Lower sodium
             (
-                name: "additives",
-                original: original.components.additives.score,
-                alternative: alternative.components.additives.score,
-                labelProvider: { delta in delta > 6 ? "Fewer additives" : nil }
+                altNutr.sodium < origNutr.sodium - 100 && origNutr.sodium > 200,
+                "Lower sodium (\(String(format: "%.0f", altNutr.sodium))mg vs \(String(format: "%.0f", origNutr.sodium))mg)"
+            ),
+            // Lower calories (for weight loss focus)
+            (
+                healthFocus == .weightLoss && altNutr.calories < origNutr.calories - 20,
+                "Lower calories (\(String(format: "%.0f", altNutr.calories)) vs \(String(format: "%.0f", origNutr.calories)))"
             )
         ]
 
-        for comparison in comparisons {
-            let delta = comparison.alternative - comparison.original
-            if let label = comparison.labelProvider(delta), !reasons.contains(label) {
-                reasons.append(label)
+        // Add nutritional improvements
+        for comparison in nutritionComparisons {
+            if comparison.check {
+                reasons.append(comparison.reason)
             }
         }
 
+        // Score component comparisons (fallback if no specific nutrients)
+        if reasons.isEmpty {
+            let componentComparisons: [(name: String, original: Double, alternative: Double, labelProvider: (Double) -> String?)] = [
+                (
+                    name: "processing",
+                    original: originalScore.components.processingLevel.score,
+                    alternative: alternativeScore.components.processingLevel.score,
+                    labelProvider: { delta in delta > 6 ? "Less processed" : nil }
+                ),
+                (
+                    name: "ingredients",
+                    original: originalScore.components.ingredientQuality.score,
+                    alternative: alternativeScore.components.ingredientQuality.score,
+                    labelProvider: { delta in delta > 6 ? "Cleaner ingredients" : nil }
+                ),
+                (
+                    name: "additives",
+                    original: originalScore.components.additives.score,
+                    alternative: alternativeScore.components.additives.score,
+                    labelProvider: { delta in delta > 6 ? "Fewer additives" : nil }
+                ),
+                (
+                    name: "nutrition",
+                    original: originalScore.components.macronutrientBalance.score,
+                    alternative: alternativeScore.components.macronutrientBalance.score,
+                    labelProvider: { delta in delta > 8 ? "Better nutrition profile" : nil }
+                )
+            ]
+
+            for comparison in componentComparisons {
+                let delta = comparison.alternative - comparison.original
+                if let label = comparison.labelProvider(delta), !reasons.contains(label) {
+                    reasons.append(label)
+                }
+            }
+        }
+
+        // Last resort
         if reasons.isEmpty {
             reasons.append("Higher overall score")
         }
 
-        return reasons
+        return Array(reasons.prefix(3)) // Limit to top 3 reasons
     }
 
     private func calculateSimilarity(_ product1: ProductModel, _ product2: ProductModel) -> Double {
@@ -297,68 +330,8 @@ final class AlternativesEngine {
     }
 
     private func normalize(products: [APIProduct], excluding original: ProductModel) -> [ProductModel] {
-        products
-            .filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .filter { $0.barcode != original.barcode }
-            .filter { isUSProduct($0) }
-            .map { convertAPIProduct($0) }
-            .filter { $0.nutrition.isComplete }
-    }
-
-    /// Check if a product is available in the United States
-    private func isUSProduct(_ product: APIProduct) -> Bool {
-        guard let countriesTags = product.countriesTags else {
-            // If countries data is not available, include the product (backwards compatibility)
-            AppLog.debug("No countries data for product: \(product.name), including by default", category: .scoring)
-            return true
-        }
-
-        // Check for US country tags
-        let usCountryTags = ["en:united-states", "en:us", "united-states", "us"]
-        let hasUSTag = countriesTags.contains { tag in
-            usCountryTags.contains(tag.lowercased())
-        }
-
-        if !hasUSTag {
-            AppLog.debug("Filtering out non-US product: \(product.name) | countries: \(countriesTags)", category: .scoring)
-        }
-
-        return hasUSTag
-    }
-
-    private func convertAPIProduct(_ api: APIProduct) -> ProductModel {
-        let nutrition = ProductNutrition(
-            calories: api.nutritionalData.calories,
-            protein: api.nutritionalData.protein,
-            carbohydrates: api.nutritionalData.carbohydrates,
-            fat: api.nutritionalData.fat,
-            fiber: api.nutritionalData.fiber,
-            sugar: api.nutritionalData.sugar,
-            sodium: api.nutritionalData.sodium,
-            cholesterol: api.nutritionalData.cholesterol,
-            servingSize: api.servingSize != nil ? "\(api.servingSize!)\(api.servingSizeUnit)" : "100g"
-        )
-
-        return ProductModel(
-            id: UUID(),
-            name: api.name,
-            brand: api.brand,
-            category: api.category,
-            categorySlug: api.categorySlug,
-            barcode: api.barcode,
-            nutrition: nutrition,
-            ingredients: api.ingredients,
-            additives: [],
-            processingLevel: .processed,
-            dietaryFlags: [],
-            imageURL: api.imageURL,
-            thumbnailURL: api.thumbnailURL,
-            healthScore: 0,
-            createdAt: Date(),
-            updatedAt: Date(),
-            isCached: false,
-            rawIngredientsText: api.rawIngredientsText
-        )
+        // Use shared converter to avoid duplicate conversion logic
+        ProductModelConverter.convertAndFilter(products, excluding: original.barcode, usOnly: true)
     }
 }
 

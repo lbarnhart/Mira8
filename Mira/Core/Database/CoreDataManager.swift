@@ -10,9 +10,11 @@ struct Product: Identifiable, Codable, Sendable {
     let category: String?
     let nutritionalData: NutritionalData
     let ingredients: String?
+    let servingSize: String?
     let imageURL: String?
     let thumbnailURL: String?
     var lastScanned: Date?
+    var nutriScore: String?
 }
 
 enum CoreDataManagerError: LocalizedError {
@@ -209,6 +211,29 @@ final class CoreDataManager {
         return results
     }
 
+    func getScanHistoryCount() throws -> Int {
+        let context = persistenceController.container.viewContext
+
+        var count: Int = 0
+        var capturedError: Error?
+
+        context.performAndWait {
+            let request: NSFetchRequest<ScanHistoryEntity> = ScanHistoryEntity.fetchRequest()
+
+            do {
+                count = try context.count(for: request)
+            } catch {
+                capturedError = error
+            }
+        }
+
+        if let error = capturedError {
+            throw error
+        }
+
+        return count
+    }
+
     func clearScanHistory() throws {
         let context = persistenceController.newBackgroundContext()
         var capturedError: Error?
@@ -357,9 +382,11 @@ final class CoreDataManager {
             category: entity.category,
             nutritionalData: nutritionalData,
             ingredients: entity.ingredients,
+            servingSize: entity.servingSize,
             imageURL: entity.imageURL,
             thumbnailURL: entity.thumbnailURL ?? entity.imageURL,
-            lastScanned: entity.lastScanned
+            lastScanned: entity.lastScanned,
+            nutriScore: entity.nutriScore
         )
     }
 

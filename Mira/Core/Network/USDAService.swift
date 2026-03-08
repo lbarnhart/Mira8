@@ -22,17 +22,125 @@ actor USDAService {
         return try mapToProduct(foodItem)
     }
 
+    /// Search for products by name (useful for image-based scanning)
+    func searchByName(name: String, brand: String? = nil, limit: Int = 10) async throws -> [APIProduct] {
+        // Build search query - include brand if available
+        var searchQuery = name
+        if let brand = brand, !brand.isEmpty {
+            searchQuery = "\(brand) \(name)"
+        }
+
+        let endpoint = USDAEndpoint.searchByName(query: searchQuery, limit: limit)
+        let response: USDASearchResponse = try await apiClient.request(endpoint)
+
+        AppLog.debug("🔍 USDA: Search by name=\(name), brand=\(brand ?? "nil"), limit=\(limit)", category: .network)
+        AppLog.debug("🔍 USDA: Raw products returned: \(response.foods.count)", category: .network)
+
+        return response.foods.compactMap { food in
+            try? mapToProduct(food)
+        }
+    }
+
     func fetchProductDetails(fdcId: String) async throws -> ProductDetails {
         let endpoint = USDAEndpoint.foodDetails(fdcId: fdcId)
         let response: USDAFoodDetailsResponse = try await apiClient.request(endpoint)
 
         return try mapToProductDetails(response)
     }
+
+    /// Search products with structured filters from natural language query
+    /// - Parameters:
+    ///   - filters: Parsed search filters
+    ///   - limit: Maximum number of results
+    /// - Returns: Array of products matching the filters
+    func searchWithFilters(_ filters: SearchFilters, limit: Int = 30) async throws -> [APIProduct] {
+        // Build search query from filters
+        var searchTerms: [String] = filters.searchTerms
+
+        // Add category terms to search
+        searchTerms.append(contentsOf: filters.categories)
+
+        // Add dietary restriction terms
+        for restriction in filters.dietaryRestrictions {
+            switch restriction {
+            case "vegan":
+                searchTerms.append("vegan")
+            case "vegetarian":
+                searchTerms.append("vegetarian")
+            case "gluten_free":
+                searchTerms.append("gluten free")
+            case "dairy_free":
+                searchTerms.append("dairy free")
+            case "nut_free":
+                searchTerms.append("nut free")
+            default:
+                break
+            }
+        }
+
+        let query = searchTerms.joined(separator: " ")
+        AppLog.debug("🔍 USDA: Search with filters, query=\(query), limit=\(limit)", category: .network)
+
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            AppLog.warning("🔍 USDA: Empty search query", category: .network)
+            return []
+        }
+
+        let endpoint = USDAEndpoint.searchByName(query: query, limit: limit)
+        let response: USDASearchResponse = try await apiClient.request(endpoint)
+        AppLog.debug("🔍 USDA: Raw products returned: \(response.foods.count)", category: .network)
+
+        let mapped: [APIProduct] = response.foods.compactMap { food in
+            try? mapToProduct(food)
+        }
+
+        // Apply nutritional filters client-side
+        let filtered = applyNutritionalFilters(mapped, filters: filters)
+        AppLog.debug("🔍 USDA: After nutritional filters: \(filtered.count)", category: .network)
+
+        return filtered
+    }
+
+    private func applyNutritionalFilters(_ products: [APIProduct], filters: SearchFilters) -> [APIProduct] {
+        guard filters.hasNutritionalFilters else { return products }
+
+        return products.filter { product in
+            let nutrition = product.nutritionalData
+
+            // Calories filter
+            if let min = filters.caloriesMin, nutrition.calories < min { return false }
+            if let max = filters.caloriesMax, nutrition.calories > max { return false }
+
+            // Protein filter
+            if let min = filters.proteinMin, nutrition.protein < min { return false }
+            if let max = filters.proteinMax, nutrition.protein > max { return false }
+
+            // Carbs filter
+            if let min = filters.carbsMin, nutrition.carbohydrates < min { return false }
+            if let max = filters.carbsMax, nutrition.carbohydrates > max { return false }
+
+            // Fat filter
+            if let min = filters.fatMin, nutrition.fat < min { return false }
+            if let max = filters.fatMax, nutrition.fat > max { return false }
+
+            // Fiber filter
+            if let min = filters.fiberMin, nutrition.fiber < min { return false }
+
+            // Sugar filter
+            if let max = filters.sugarMax, nutrition.sugar > max { return false }
+
+            // Sodium filter (convert mg to g for comparison)
+            if let max = filters.sodiumMax, (nutrition.sodium * 1000) > max { return false }
+
+            return true
+        }
+    }
 }
 
 // MARK: - USDA Endpoints
 private enum USDAEndpoint: APIEndpoint {
     case searchByBarcode(barcode: String)
+    case searchByName(query: String, limit: Int)
     case foodDetails(fdcId: String)
 
     var baseURL: String {
@@ -41,7 +149,7 @@ private enum USDAEndpoint: APIEndpoint {
 
     var path: String {
         switch self {
-        case .searchByBarcode:
+        case .searchByBarcode, .searchByName:
             return "/fdc/v1/foods/search"
         case .foodDetails(let fdcId):
             return "/fdc/v1/food/\(fdcId)"
@@ -57,6 +165,15 @@ private enum USDAEndpoint: APIEndpoint {
                 URLQueryItem(name: "query", value: barcode),
                 URLQueryItem(name: "dataType", value: "Branded"),
                 URLQueryItem(name: "pageSize", value: "25"),
+                URLQueryItem(name: "pageNumber", value: "1"),
+                URLQueryItem(name: "sortBy", value: "dataType.keyword"),
+                URLQueryItem(name: "sortOrder", value: "asc")
+            ])
+        case .searchByName(let query, let limit):
+            items.append(contentsOf: [
+                URLQueryItem(name: "query", value: query),
+                URLQueryItem(name: "dataType", value: "Branded"),
+                URLQueryItem(name: "pageSize", value: "\(limit)"),
                 URLQueryItem(name: "pageNumber", value: "1"),
                 URLQueryItem(name: "sortBy", value: "dataType.keyword"),
                 URLQueryItem(name: "sortOrder", value: "asc")

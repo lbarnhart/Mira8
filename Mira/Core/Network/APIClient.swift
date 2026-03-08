@@ -26,23 +26,54 @@ enum HTTPMethod: String {
     case PATCH = "PATCH"
 }
 
+// MARK: - Retry Configuration
+struct RetryConfiguration {
+    let maxRetries: Int
+    let baseDelay: TimeInterval
+    let maxDelay: TimeInterval
+    let retryableStatusCodes: Set<Int>
+
+    static let `default` = RetryConfiguration(
+        maxRetries: 3,
+        baseDelay: 0.5,
+        maxDelay: 8.0,
+        retryableStatusCodes: [408, 429, 500, 502, 503, 504]
+    )
+
+    static let none = RetryConfiguration(
+        maxRetries: 0,
+        baseDelay: 0,
+        maxDelay: 0,
+        retryableStatusCodes: []
+    )
+
+    func delay(for attempt: Int) -> TimeInterval {
+        let exponentialDelay = baseDelay * pow(2.0, Double(attempt))
+        let jitter = Double.random(in: 0...0.3) * exponentialDelay
+        return min(exponentialDelay + jitter, maxDelay)
+    }
+}
+
 // MARK: - Generic API Client
 actor APIClient: APIClientProtocol {
     private let session: URLSession
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
     private let logger: NetworkLogger
+    private let retryConfig: RetryConfiguration
 
     init(
         session: URLSession = .shared,
         decoder: JSONDecoder = JSONDecoder(),
         encoder: JSONEncoder = JSONEncoder(),
-        enableLogging: Bool = true
+        enableLogging: Bool = true,
+        retryConfiguration: RetryConfiguration = .default
     ) {
         self.session = session
         self.decoder = decoder
         self.encoder = encoder
         self.logger = NetworkLogger(isEnabled: enableLogging)
+        self.retryConfig = retryConfiguration
 
         // Configure decoder for common date formats
         decoder.dateDecodingStrategy = .iso8601
@@ -69,8 +100,17 @@ actor APIClient: APIClientProtocol {
 
     // MARK: - Raw Data Request
     func requestData(_ endpoint: APIEndpoint) async throws -> Data {
+        return try await requestDataWithRetry(endpoint, attempt: 0)
+    }
+
+    private func requestDataWithRetry(_ endpoint: APIEndpoint, attempt: Int) async throws -> Data {
         let request = try buildURLRequest(from: endpoint)
-        await logger.logRequest(request)
+
+        if attempt == 0 {
+            await logger.logRequest(request)
+        } else {
+            await logger.logRetry(attempt: attempt, maxRetries: retryConfig.maxRetries)
+        }
 
         do {
             let (data, response) = try await session.data(for: request)
@@ -81,16 +121,49 @@ actor APIClient: APIClientProtocol {
 
             await logger.logResponse(response: httpResponse, data: data)
 
+            // Check for retryable status codes
+            if retryConfig.retryableStatusCodes.contains(httpResponse.statusCode) && attempt < retryConfig.maxRetries {
+                let delay = retryConfig.delay(for: attempt)
+                AppLog.debug("Retryable status \(httpResponse.statusCode), waiting \(String(format: "%.2f", delay))s before retry", category: .network)
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                return try await requestDataWithRetry(endpoint, attempt: attempt + 1)
+            }
+
             guard 200...299 ~= httpResponse.statusCode else {
                 throw NetworkError.httpError(from: httpResponse.statusCode)
             }
 
             return data
+        } catch let error as NetworkError {
+            // Don't retry NetworkError types that aren't transient
+            await logger.logError(error)
+            throw error
         } catch {
+            // Retry on transient errors (timeout, connection lost, etc.)
+            if isRetryableError(error) && attempt < retryConfig.maxRetries {
+                let delay = retryConfig.delay(for: attempt)
+                AppLog.debug("Transient error: \(error.localizedDescription), waiting \(String(format: "%.2f", delay))s before retry", category: .network)
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                return try await requestDataWithRetry(endpoint, attempt: attempt + 1)
+            }
+
             let networkError = NetworkError.from(error)
             await logger.logError(networkError)
             throw networkError
         }
+    }
+
+    private func isRetryableError(_ error: Error) -> Bool {
+        let nsError = error as NSError
+        let retryableCodes: Set<Int> = [
+            NSURLErrorTimedOut,
+            NSURLErrorNetworkConnectionLost,
+            NSURLErrorNotConnectedToInternet,
+            NSURLErrorCannotConnectToHost,
+            NSURLErrorCannotFindHost,
+            NSURLErrorDNSLookupFailed
+        ]
+        return nsError.domain == NSURLErrorDomain && retryableCodes.contains(nsError.code)
     }
 
     // MARK: - Request Building
@@ -182,8 +255,14 @@ actor NetworkLogger {
     func logError(_ error: Error) {
         guard isEnabled else { return }
 
-        AppLog.error("❌ API Error: \(error.localizedDescription)", category: .network)
+        AppLog.error("API Error: \(error.localizedDescription)", category: .network)
         AppLog.debug("---", category: .network)
+    }
+
+    func logRetry(attempt: Int, maxRetries: Int) {
+        guard isEnabled else { return }
+
+        AppLog.debug("Retry attempt \(attempt)/\(maxRetries)", category: .network)
     }
 }
 

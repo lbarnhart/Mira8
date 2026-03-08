@@ -143,7 +143,7 @@ final class ScoringInputNormalizer {
             skippedMetrics: orderedMetrics(from: skippedMetrics)
         )
 
-        let availability = nutrition.availability
+        let availability = computeNutrientAvailability(from: nutrition)
         let energyKJ = nutrition.calories * 4.184
         let ingredientHits = buildIngredientHits(from: product.ingredients)
         let additiveHits = buildAdditiveHits(from: product.additives)
@@ -340,5 +340,31 @@ final class ScoringInputNormalizer {
     private func orderedMetrics(from set: Set<NutritionDensity.DensityMetric>) -> [NutritionDensity.DensityMetric] {
         let order: [NutritionDensity.DensityMetric] = [.per100g, .per100ml, .perServing]
         return order.filter { set.contains($0) }
+    }
+
+    private func computeNutrientAvailability(from nutrition: ProductNutrition) -> NutrientAvailability {
+        var availability: NutrientAvailability = []
+
+        // Consider a nutrient available if it has a non-zero value
+        if nutrition.calories > 0 {
+            availability.insert(.energy)
+        }
+        if nutrition.sugar > 0 {
+            availability.insert(.sugar)
+        }
+        if nutrition.saturatedFat > 0 {
+            availability.insert(.saturatedFat)
+        }
+        if nutrition.sodium > 0 {
+            availability.insert(.sodium)
+        }
+        if nutrition.fiber > 0 {
+            availability.insert(.fiber)
+        }
+        if nutrition.protein > 0 {
+            availability.insert(.protein)
+        }
+
+        return availability
     }
 }
