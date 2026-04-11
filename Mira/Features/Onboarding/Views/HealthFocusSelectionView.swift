@@ -90,6 +90,7 @@ struct HealthFocusSelectionView: View {
                             .accessibilityLabel("\(option.title), \(option.description)")
                             .accessibilityHint(selectedFocus == option.id ? "Selected. Double tap to see example comparison." : "Double tap to select and see example comparison.")
                             .accessibilityAddTraits(selectedFocus == option.id ? [.isButton, .isSelected] : .isButton)
+                            .accessibilityIdentifier("onboarding.healthFocus.\(option.id)")
 
                             // Interactive preview (expands when tapped)
                             if expandedOption == option.id {

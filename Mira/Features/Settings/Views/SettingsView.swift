@@ -1,23 +1,25 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("selectedHealthFocus") private var selectedHealthFocusIdentifier: String = "generalWellness"
-    @AppStorage("dietaryRestrictions") private var dietaryRestrictionsData: Data = Data()
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appState: AppState
     @State private var dietaryRestrictions: Set<DietaryRestriction> = []
     @State private var showingHealthProfile = false
     @State private var showingDietaryRestrictions = false
     @State private var showingAbout = false
-    @State private var showingMore = false
+    @State private var showingClearHistoryConfirmation = false
+    @State private var showingClearHistoryError = false
+    @State private var clearHistoryErrorMessage = ""
 
     private var selectedHealthFocus: HealthFocus {
-        get { HealthFocus(fromStored: selectedHealthFocusIdentifier) }
-        set { selectedHealthFocusIdentifier = newValue.rawValue }
+        get { HealthFocus(fromStored: appState.healthFocus) }
+        set { appState.healthFocus = newValue.rawValue }
     }
 
     private var selectedHealthFocusBinding: Binding<HealthFocus> {
         Binding(
             get: { selectedHealthFocus },
-            set: { selectedHealthFocusIdentifier = $0.rawValue }
+            set: { appState.healthFocus = $0.rawValue }
         )
     }
 
@@ -25,20 +27,30 @@ struct SettingsView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Spacing.xl) {
-                    // Profile Section
                     profileSection
-
-                    // More Section - links to additional settings
-                    moreSection
+                    dataSection
+                    appInfoSection
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xl)
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.textTertiary)
+                    }
+                    .accessibilityIdentifier("settings.close")
+                }
+            }
             .onAppear {
                 loadDietaryRestrictions()
             }
+            .accessibilityIdentifier("screen.settings")
         }
         .sheet(isPresented: $showingHealthProfile) {
             HealthProfileSheet(selectedFocus: selectedHealthFocusBinding)
@@ -48,23 +60,21 @@ struct SettingsView: View {
                 saveDietaryRestrictions()
             }
         }
-        .sheet(isPresented: $showingMore) {
-            MoreSettingsSheet(showingAbout: $showingAbout)
-        }
         .sheet(isPresented: $showingAbout) {
             AboutSheet()
         }
-    }
-
-    private var moreSection: some View {
-        SettingsSection(title: "More") {
-            SettingsRow(
-                icon: "ellipsis.circle.fill",
-                iconColor: .textSecondary,
-                title: "More Settings",
-                subtitle: "Preferences, Privacy, Support",
-                action: { showingMore = true }
-            )
+        .alert("Clear Scan History?", isPresented: $showingClearHistoryConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
+                clearScanHistory()
+            }
+        } message: {
+            Text("This removes your saved scan history from this device. Favorites and shopping list items stay intact.")
+        }
+        .alert("Unable to Clear History", isPresented: $showingClearHistoryError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(clearHistoryErrorMessage)
         }
     }
 
@@ -77,6 +87,7 @@ struct SettingsView: View {
                 subtitle: selectedHealthFocus.displayName,
                 action: { showingHealthProfile = true }
             )
+            .accessibilityIdentifier("settings.healthFocus")
 
             SettingsRow(
                 icon: "leaf.fill",
@@ -85,128 +96,39 @@ struct SettingsView: View {
                 subtitle: dietaryRestrictionsSubtitle,
                 action: { showingDietaryRestrictions = true }
             )
+            .accessibilityIdentifier("settings.dietaryRestrictions")
         }
     }
 
-    private var preferencesSection: some View {
-        SettingsSection(title: "Preferences") {
-            SettingsRow(
-                icon: "bell.fill",
-                iconColor: .warning,
-                title: "Notifications",
-                subtitle: "Scan reminders, health tips",
-                action: {
-                    // TODO: Implement notifications settings
-                }
-            )
-
-            SettingsRow(
-                icon: "moon.fill",
-                iconColor: .primary,
-                title: "Dark Mode",
-                subtitle: "Automatic",
-                action: {
-                    // TODO: Implement dark mode settings
-                }
-            )
-
-            SettingsRow(
-                icon: "textformat.size",
-                iconColor: .oceanTeal,
-                title: "Text Size",
-                subtitle: "Medium",
-                action: {
-                    // TODO: Implement text size settings
-                }
-            )
-        }
-    }
-
-    private var dataPrivacySection: some View {
-        SettingsSection(title: "Data & Privacy") {
-            SettingsRow(
-                icon: "icloud.fill",
-                iconColor: .info,
-                title: "Sync Data",
-                subtitle: "iCloud enabled",
-                action: {
-                    // TODO: Implement iCloud sync settings
-                }
-            )
-
+    private var dataSection: some View {
+        SettingsSection(
+            title: "Data",
+            footer: "Only working data-management actions are shown in the 1.0 settings surface."
+        ) {
             DestructiveSettingsRow(
                 icon: "trash.fill",
-                title: "Clear History",
-                subtitle: "Remove all scanned products"
+                title: "Clear Scan History",
+                subtitle: "Remove saved scan history from this device"
             ) {
-                // TODO: Implement clear history with confirmation
+                showingClearHistoryConfirmation = true
             }
-
-            SettingsRow(
-                icon: "doc.text.fill",
-                iconColor: .textSecondary,
-                title: "Privacy Policy",
-                subtitle: "How we protect your data",
-                action: {
-                    // TODO: Open privacy policy URL
-                }
-            )
-        }
-    }
-
-    private var supportSection: some View {
-        SettingsSection(title: "Support") {
-            SettingsRow(
-                icon: "questionmark.circle.fill",
-                iconColor: .info,
-                title: "Help Center",
-                subtitle: "FAQ and guides",
-                action: {
-                    // TODO: Open help center URL
-                }
-            )
-
-            SettingsRow(
-                icon: "envelope.fill",
-                iconColor: .oceanTeal,
-                title: "Contact Us",
-                subtitle: "Get support",
-                action: {
-                    // TODO: Open contact/support email
-                }
-            )
-
-            SettingsRow(
-                icon: "star.fill",
-                iconColor: .warning,
-                title: "Rate App",
-                subtitle: "Share your feedback",
-                action: {
-                    // TODO: Open App Store rating
-                }
-            )
+            .accessibilityIdentifier("settings.clearHistory")
         }
     }
 
     private var appInfoSection: some View {
-        SettingsSection(title: "App Info") {
+        SettingsSection(
+            title: "App Info",
+            footer: "Legal and support URLs still need to be finalized before App Store submission."
+        ) {
             SettingsRow(
                 icon: "info.circle.fill",
                 iconColor: .textSecondary,
                 title: "About Mira",
-                subtitle: "Version 1.0.0",
+                subtitle: appVersionDescription,
                 action: { showingAbout = true }
             )
-
-            SettingsRow(
-                icon: "doc.fill",
-                iconColor: .textSecondary,
-                title: "Terms of Service",
-                subtitle: "Legal information",
-                action: {
-                    // TODO: Open terms of service URL
-                }
-            )
+            .accessibilityIdentifier("settings.about")
         }
     }
 
@@ -220,28 +142,41 @@ struct SettingsView: View {
         }
     }
 
+    private var appVersionDescription: String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let buildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+
+        if shortVersion == buildNumber {
+            return "Version \(shortVersion)"
+        }
+
+        return "Version \(shortVersion) (\(buildNumber))"
+    }
 
     private func loadDietaryRestrictions() {
-        if let decoded = try? JSONDecoder().decode(Set<DietaryRestriction>.self, from: dietaryRestrictionsData) {
-            dietaryRestrictions = decoded
-        }
+        dietaryRestrictions = Set(DietaryRestriction.fromStrings(appState.dietaryRestrictions))
     }
 
     private func saveDietaryRestrictions() {
-        if let encoded = try? JSONEncoder().encode(dietaryRestrictions) {
-            dietaryRestrictionsData = encoded
+        appState.dietaryRestrictions = Set(dietaryRestrictions.map(\.rawValue))
+    }
+
+    private func clearScanHistory() {
+        do {
+            try CoreDataManager.shared.clearScanHistory()
+        } catch {
+            clearHistoryErrorMessage = error.localizedDescription
+            showingClearHistoryError = true
         }
     }
 }
 
-// MARK: - Sheet Views
 struct HealthProfileSheet: View {
     @Binding var selectedFocus: HealthFocus
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
-            // Header with close button
             HStack {
                 Text("Health Focus")
                     .headlineMediumStyle()
@@ -282,7 +217,6 @@ struct HealthProfileSheet: View {
                                     .bodyMediumStyle()
                                     .foregroundColor(.textPrimary)
 
-                                // Active icon in place of description
                                 if selectedFocus == focus {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.oceanTeal)
@@ -383,177 +317,14 @@ struct DietaryRestrictionsSheet: View {
     }
 }
 
-struct MoreSettingsSheet: View {
-    @Binding var showingAbout: Bool
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: Spacing.xl) {
-                    // Preferences Section
-                    preferencesSection
-
-                    // Data & Privacy Section
-                    dataPrivacySection
-
-                    // Support Section
-                    supportSection
-
-                    // App Info
-                    appInfoSection
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.bottom, Spacing.xl)
-            }
-            .navigationTitle("More")
-            .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-    }
-
-    private var preferencesSection: some View {
-        SettingsSection(title: "Preferences") {
-            SettingsRow(
-                icon: "bell.fill",
-                iconColor: .warning,
-                title: "Notifications",
-                subtitle: "Scan reminders, health tips",
-                action: {
-                    // TODO: Implement notifications settings
-                }
-            )
-
-            SettingsRow(
-                icon: "moon.fill",
-                iconColor: .primary,
-                title: "Dark Mode",
-                subtitle: "Automatic",
-                action: {
-                    // TODO: Implement dark mode settings
-                }
-            )
-
-            SettingsRow(
-                icon: "textformat.size",
-                iconColor: .oceanTeal,
-                title: "Text Size",
-                subtitle: "Medium",
-                action: {
-                    // TODO: Implement text size settings
-                }
-            )
-        }
-    }
-
-    private var dataPrivacySection: some View {
-        SettingsSection(title: "Data & Privacy") {
-            SettingsRow(
-                icon: "icloud.fill",
-                iconColor: .info,
-                title: "Sync Data",
-                subtitle: "iCloud enabled",
-                action: {
-                    // TODO: Implement iCloud sync settings
-                }
-            )
-
-            DestructiveSettingsRow(
-                icon: "trash.fill",
-                title: "Clear History",
-                subtitle: "Remove all scanned products"
-            ) {
-                // TODO: Implement clear history with confirmation
-            }
-
-            SettingsRow(
-                icon: "doc.text.fill",
-                iconColor: .textSecondary,
-                title: "Privacy Policy",
-                subtitle: "How we protect your data",
-                action: {
-                    // TODO: Open privacy policy URL
-                }
-            )
-        }
-    }
-
-    private var supportSection: some View {
-        SettingsSection(title: "Support") {
-            SettingsRow(
-                icon: "questionmark.circle.fill",
-                iconColor: .info,
-                title: "Help Center",
-                subtitle: "FAQ and guides",
-                action: {
-                    // TODO: Open help center URL
-                }
-            )
-
-            SettingsRow(
-                icon: "envelope.fill",
-                iconColor: .oceanTeal,
-                title: "Contact Us",
-                subtitle: "Get support",
-                action: {
-                    // TODO: Open contact/support email
-                }
-            )
-
-            SettingsRow(
-                icon: "star.fill",
-                iconColor: .warning,
-                title: "Rate App",
-                subtitle: "Share your feedback",
-                action: {
-                    // TODO: Open App Store rating
-                }
-            )
-        }
-    }
-
-    private var appInfoSection: some View {
-        SettingsSection(title: "App Info") {
-            SettingsRow(
-                icon: "info.circle.fill",
-                iconColor: .textSecondary,
-                title: "About Mira",
-                subtitle: "Version 1.0.0",
-                action: {
-                    dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        showingAbout = true
-                    }
-                }
-            )
-
-            SettingsRow(
-                icon: "doc.fill",
-                iconColor: .textSecondary,
-                title: "Terms of Service",
-                subtitle: "Legal information",
-                action: {
-                    // TODO: Open terms of service URL
-                }
-            )
-        }
-    }
-}
-
 struct AboutSheet: View {
     @Environment(\.dismiss) private var dismiss
+    private let configuration = AppConfiguration.shared
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Spacing.xl) {
-                    // App Icon and Name
                     VStack(spacing: Spacing.md) {
                         Image(systemName: "viewfinder")
                             .font(.system(size: 80, weight: .light))
@@ -567,13 +338,12 @@ struct AboutSheet: View {
                             .bodyLargeStyle()
                             .foregroundColor(.textSecondary)
 
-                        Text("Version 1.0.0")
+                        Text(appVersionDescription)
                             .captionMediumStyle()
                             .foregroundColor(.textTertiary)
                     }
                     .padding(.top, Spacing.xl)
 
-                    // Description
                     VStack(spacing: Spacing.md) {
                         Text("About Mira")
                             .headlineSmallStyle()
@@ -585,7 +355,6 @@ struct AboutSheet: View {
                             .multilineTextAlignment(.center)
                     }
 
-                    // Credits
                     VStack(spacing: Spacing.sm) {
                         Text("Powered by")
                             .captionMediumStyle()
@@ -596,6 +365,64 @@ struct AboutSheet: View {
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
                     }
+
+                    if !resourceLinks.isEmpty {
+                        VStack(alignment: .leading, spacing: Spacing.md) {
+                            Text("Support & Privacy")
+                                .headlineSmallStyle()
+                                .foregroundColor(.textPrimary)
+
+                            VStack(spacing: Spacing.sm) {
+                                ForEach(resourceLinks) { link in
+                                    Link(destination: link.url) {
+                                        HStack(spacing: Spacing.md) {
+                                            Image(systemName: link.icon)
+                                                .foregroundColor(.primaryBlue)
+                                                .frame(width: 20)
+
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(link.title)
+                                                    .bodyMediumStyle()
+                                                    .foregroundColor(.textPrimary)
+
+                                                if let subtitle = link.subtitle {
+                                                    Text(subtitle)
+                                                        .captionMediumStyle()
+                                                        .foregroundColor(.textSecondary)
+                                                }
+                                            }
+
+                                            Spacer()
+
+                                            Image(systemName: "arrow.up.right")
+                                                .font(.caption)
+                                                .foregroundColor(.textTertiary)
+                                        }
+                                        .padding(Spacing.md)
+                                        .background(Color.backgroundSecondary)
+                                        .cornerRadius(CornerRadius.card)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+#if DEBUG
+                    if resourceLinks.isEmpty {
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            Text("Release Setup Needed")
+                                .headlineSmallStyle()
+                                .foregroundColor(.textPrimary)
+
+                            Text("Add privacy, terms, help, and support contact values to Configuration.plist before App Store submission.")
+                                .bodyMediumStyle()
+                                .foregroundColor(.textSecondary)
+                        }
+                        .padding(Spacing.md)
+                        .background(Color.backgroundSecondary)
+                        .cornerRadius(CornerRadius.card)
+                    }
+#endif
                 }
                 .padding(.horizontal, Spacing.lg)
             }
@@ -610,8 +437,66 @@ struct AboutSheet: View {
             }
         }
     }
+
+    private var appVersionDescription: String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+        let buildNumber = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+
+        if shortVersion == buildNumber {
+            return "Version \(shortVersion)"
+        }
+
+        return "Version \(shortVersion) (\(buildNumber))"
+    }
+
+    private var resourceLinks: [AboutResourceLink] {
+        [
+            AboutResourceLink(
+                title: "Privacy Policy",
+                subtitle: "Required for App Store distribution",
+                icon: "lock.doc",
+                url: configuration.privacyPolicyURL
+            ),
+            AboutResourceLink(
+                title: "Terms of Service",
+                subtitle: "Review how Mira should be used",
+                icon: "doc.text",
+                url: configuration.termsOfServiceURL
+            ),
+            AboutResourceLink(
+                title: "Help Center",
+                subtitle: "Troubleshooting and FAQs",
+                icon: "questionmark.circle",
+                url: configuration.helpCenterURL
+            ),
+            AboutResourceLink(
+                title: "Contact Support",
+                subtitle: configuration.supportEmailAddress,
+                icon: "envelope",
+                url: configuration.supportEmailURL
+            )
+        ]
+        .compactMap { $0 }
+    }
+}
+
+private struct AboutResourceLink: Identifiable {
+    let id = UUID()
+    let title: String
+    let subtitle: String?
+    let icon: String
+    let url: URL
+
+    init?(title: String, subtitle: String?, icon: String, url: URL?) {
+        guard let url else { return nil }
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.url = url
+    }
 }
 
 #Preview {
     SettingsView()
+        .environmentObject(AppState())
 }

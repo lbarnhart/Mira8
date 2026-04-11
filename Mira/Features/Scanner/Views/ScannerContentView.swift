@@ -18,6 +18,7 @@ struct ScannerContentView: View {
     @State private var showComparisonMode = false
     @State private var isComparisonModeActive = false
     @State private var showSettings = false
+    @State private var isPhotoScanAvailable = false
     @StateObject private var comparisonViewModel = ComparisonModeViewModel()
     @StateObject private var imageScannerViewModel = ImageScannerViewModel()
 
@@ -33,10 +34,13 @@ struct ScannerContentView: View {
         mainContent
             .task {
                 await viewModel.setupCamera()
+                await refreshFeatureAvailability()
             }
             .onAppear {
                 viewModel.startScanning()
-                // Filter mode always defaults to hidden
+                Task {
+                    await refreshFeatureAvailability()
+                }
             }
             .onDisappear {
                 viewModel.stopScanning()
@@ -46,6 +50,7 @@ struct ScannerContentView: View {
             .onReceive(viewModel.$lastScanResult.compactMap { $0 }) { result in
                 onScanComplete(result)
             }
+            .accessibilityIdentifier("screen.scan")
     }
 
     private var mainContent: some View {
@@ -63,7 +68,6 @@ struct ScannerContentView: View {
             }
         }
         .sheet(isPresented: $showProductDetail, onDismiss: {
-            print("📤 Product detail sheet dismissed")
             viewModel.resetScanner()
             scannedBarcodeFromImage = nil
             imageScannerViewModel.reset()
@@ -234,11 +238,18 @@ struct ScannerContentView: View {
         case .active:
             viewModel.refreshPermissionStatus()
             viewModel.startScanning()
+            Task {
+                await refreshFeatureAvailability()
+            }
         case .background, .inactive:
             viewModel.stopScanning()
         @unknown default:
             break
         }
+    }
+
+    private func refreshFeatureAvailability() async {
+        isPhotoScanAvailable = await ClaudeService.shared.isConfigured
     }
 
     private func handleScannedProduct(_ product: ProductModel?) {
@@ -350,7 +361,7 @@ struct ScannerContentView: View {
                 CameraPreviewView(session: session)
                     .ignoresSafeArea()
             } else {
-                Color.black
+                scannerFallbackView
             }
 
             ScannerOverlayView(
@@ -379,6 +390,7 @@ struct ScannerContentView: View {
                             .background(.ultraThinMaterial)
                             .clipShape(Circle())
                     }
+                    .accessibilityIdentifier("scanner.filter")
 
                     Spacer()
 
@@ -394,6 +406,7 @@ struct ScannerContentView: View {
                                 .background(.ultraThinMaterial)
                                 .clipShape(Circle())
                         }
+                        .accessibilityIdentifier("scanner.flash")
                     }
 
                     // Settings button
@@ -407,6 +420,7 @@ struct ScannerContentView: View {
                             .background(.ultraThinMaterial)
                             .clipShape(Circle())
                     }
+                    .accessibilityIdentifier("scanner.settings")
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -447,12 +461,13 @@ struct ScannerContentView: View {
                     }
                 )
 
-                // Photo Mode Button
-                PhotoModeButton {
-                    // Stop the barcode scanner camera before switching to photo mode
-                    // This prevents the two camera sessions from competing
-                    viewModel.stopScanning()
-                    showPhotoCamera = true
+                if isPhotoScanAvailable {
+                    PhotoModeButton {
+                        // Stop the barcode scanner camera before switching to photo mode
+                        // This prevents the two camera sessions from competing
+                        viewModel.stopScanning()
+                        showPhotoCamera = true
+                    }
                 }
             }
             .padding(.bottom, 50)
@@ -470,13 +485,104 @@ struct ScannerContentView: View {
         .transition(.opacity.animation(AnimationConstants.fade))
     }
 
+    private var scannerFallbackView: some View {
+        LinearGradient(
+            colors: [
+                Color.deepForest.opacity(0.95),
+                Color.oceanTeal.opacity(0.85),
+                Color.black
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .ignoresSafeArea()
+        .overlay {
+            VStack(spacing: Spacing.xl) {
+                Spacer()
+
+                Image(systemName: "barcode.viewfinder")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundColor(.white)
+
+                VStack(spacing: Spacing.sm) {
+                    Text(scannerFallbackTitle)
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+                        .multilineTextAlignment(.center)
+
+                    Text(scannerFallbackMessage)
+                        .font(.body)
+                        .foregroundColor(.white.opacity(0.82))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.sectionSpacing)
+                }
+
+                VStack(spacing: Spacing.sm) {
+                    Button {
+                        viewModel.refreshPermissionStatus()
+                    } label: {
+                        Text(viewModel.hasPermission ? "Retry Camera" : "Enable Camera")
+                            .font(.headline)
+                            .foregroundColor(.textOnDark)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.md)
+                            .background(Color.oceanTeal)
+                            .cornerRadius(CornerRadius.button)
+                    }
+                    .accessibilityIdentifier("scanner.retryCamera")
+
+                    Button {
+                        appState.selectedTab = Tab.search.rawValue
+                    } label: {
+                        Text("Browse Products Instead")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.md)
+                            .background(Color.white.opacity(0.12))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: CornerRadius.button)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
+                            .cornerRadius(CornerRadius.button)
+                    }
+                    .accessibilityIdentifier("scanner.fallbackBrowse")
+                }
+                .padding(.horizontal, Spacing.sectionSpacing)
+
+                Spacer()
+            }
+            .padding(.bottom, Spacing.massive)
+        }
+    }
+
+    private var scannerFallbackTitle: String {
+        if !viewModel.hasPermission {
+            return "Camera access is off"
+        }
+
+        #if targetEnvironment(simulator)
+        return "Camera preview is unavailable in Simulator"
+        #else
+        return "Getting the scanner ready"
+        #endif
+    }
+
+    private var scannerFallbackMessage: String {
+        if !viewModel.hasPermission {
+            return "Allow camera access to scan barcodes and unlock product details instantly."
+        }
+
+        #if targetEnvironment(simulator)
+        return "Use a physical iPhone for live barcode scanning, or switch to search while you keep building."
+        #else
+        return "If the camera does not appear within a moment, retry or use search to keep exploring the app."
+        #endif
+    }
+
     @ViewBuilder
     private var productDetailSheet: some View {
-        // Handle both barcode scanner and image scanner results
         let barcode = viewModel.scannedProduct?.barcode ?? scannedBarcodeFromImage ?? ""
-        let _ = print("📄 Sheet content building - barcode: \(barcode.isEmpty ? "EMPTY" : barcode)")
-        let _ = print("   viewModel.scannedProduct?.barcode: \(viewModel.scannedProduct?.barcode ?? "nil")")
-        let _ = print("   scannedBarcodeFromImage: \(scannedBarcodeFromImage ?? "nil")")
 
         if !barcode.isEmpty {
             NavigationStack {
@@ -490,14 +596,13 @@ struct ScannerContentView: View {
                     }
             }
         } else {
-            let _ = print("⚠️ Showing EmptyView because barcode is empty!")
             EmptyView()
         }
     }
 
     private var permissionView: some View {
         VStack(spacing: 20) {
-            Image("tab-scan-selected")
+            Image("TabScanSelected")
                 .renderingMode(.original)
                 .resizable()
                 .frame(width: 100, height: 100)
@@ -519,9 +624,11 @@ struct ScannerContentView: View {
             }
             .foregroundColor(.blue)
             .padding(.top, 10)
+            .accessibilityIdentifier("scanner.openSettings")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.ignoresSafeArea())
+        .accessibilityIdentifier("scanner.permission")
     }
 }
 
@@ -545,6 +652,7 @@ private struct PhotoModeButton: View {
         }
         .accessibilityLabel("Photo Mode")
         .accessibilityHint("Switch to photo-based product scanning")
+        .accessibilityIdentifier("scanner.photoMode")
     }
 }
 
@@ -601,6 +709,7 @@ private struct ScannerComparisonButton: View {
         }
         .accessibilityLabel(isActive ? "Comparison mode active, \(productCount) products" : "Comparison mode")
         .accessibilityHint(isActive ? "Exit comparison mode or view current comparison" : "Enter comparison mode to scan and compare multiple products")
+        .accessibilityIdentifier("scanner.compare")
     }
 }
 

@@ -64,6 +64,7 @@ struct DietaryRestrictionsView: View {
                                 )
                         )
                     }
+                    .accessibilityIdentifier("onboarding.restriction.\(option.id)")
                 }
             }
         }

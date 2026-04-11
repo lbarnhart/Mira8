@@ -5,6 +5,7 @@ struct ScoreComparisonSheet: View {
     let product: ProductModel
     let currentFocus: HealthFocus
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appState: AppState
 
     @State private var comparisonScores: [HealthFocus: HealthScore] = [:]
     @State private var isLoading = true
@@ -40,6 +41,11 @@ struct ScoreComparisonSheet: View {
                         ProgressView("Calculating scores...")
                             .padding()
                     } else {
+                        if let bestFocus = bestFocus {
+                            comparisonSummaryCard(bestFocus: bestFocus)
+                                .padding(.horizontal, Spacing.lg)
+                        }
+
                         // Score comparison list
                         VStack(spacing: Spacing.md) {
                             ForEach(allFocuses, id: \.self) { focus in
@@ -47,6 +53,7 @@ struct ScoreComparisonSheet: View {
                                     focus: focus,
                                     score: comparisonScores[focus]?.overall ?? 0,
                                     isCurrentFocus: focus == currentFocus,
+                                    isBestFocus: focus == bestFocus,
                                     components: comparisonScores[focus]?.breakdown ?? []
                                 )
                             }
@@ -132,6 +139,9 @@ struct ScoreComparisonSheet: View {
         .onAppear {
             calculateAllScores()
         }
+        .onChange(of: appState.dietaryRestrictions) { _ in
+            calculateAllScores()
+        }
     }
 
     // MARK: - Helper Views
@@ -155,11 +165,44 @@ struct ScoreComparisonSheet: View {
         }
     }
 
+    private var bestFocus: HealthFocus? {
+        comparisonScores.max(by: { $0.value.overall < $1.value.overall })?.key
+    }
+
+    private func comparisonSummaryCard(bestFocus: HealthFocus) -> some View {
+        let currentScore = comparisonScores[currentFocus]?.overall ?? 0
+        let bestScore = comparisonScores[bestFocus]?.overall ?? currentScore
+        let delta = bestScore - currentScore
+
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Best Fit for This Product")
+                .font(.headline)
+                .foregroundColor(.textPrimary)
+
+            Text("\(bestFocus.icon) \(bestFocus.displayName)")
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primaryBlue)
+
+            if bestFocus == currentFocus {
+                Text("Your current focus already gives this product its strongest score.")
+                    .font(.subheadline)
+                    .foregroundColor(.textSecondary)
+            } else {
+                Text("This product scores \(Int(delta.rounded())) points higher for \(bestFocus.displayName.lowercased()) than for your current focus.")
+                    .font(.subheadline)
+                    .foregroundColor(.textSecondary)
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.primaryBlue.opacity(0.08))
+        .cornerRadius(CornerRadius.card)
+    }
+
     // MARK: - Score Calculation
 
     private func calculateAllScores() {
         Task {
-            let dietaryRestrictions = UserDefaults.standard.stringArray(forKey: "selectedDietaryRestrictions")?.compactMap { DietaryRestriction(rawValue: $0) } ?? []
+            let dietaryRestrictions = DietaryRestriction.fromStrings(appState.dietaryRestrictions)
 
             var scores: [HealthFocus: HealthScore] = [:]
 
@@ -186,6 +229,7 @@ struct FocusScoreCard: View {
     let focus: HealthFocus
     let score: Double
     let isCurrentFocus: Bool
+    let isBestFocus: Bool
     let components: [ComponentBreakdown]
 
     @State private var isExpanded = false
@@ -211,6 +255,14 @@ struct FocusScoreCard: View {
                             .padding(.horizontal, Spacing.xs)
                             .padding(.vertical, 2)
                             .background(Color.primaryBlue.opacity(0.12))
+                            .cornerRadius(4)
+                    } else if isBestFocus {
+                        Text("Best fit")
+                            .font(.caption2)
+                            .foregroundColor(.scoreExcellent)
+                            .padding(.horizontal, Spacing.xs)
+                            .padding(.vertical, 2)
+                            .background(Color.scoreExcellent.opacity(0.12))
                             .cornerRadius(4)
                     }
                 }
@@ -321,4 +373,5 @@ struct FocusScoreCard: View {
         product: sampleProduct,
         currentFocus: .gutHealth
     )
+    .environmentObject(AppState())
 }

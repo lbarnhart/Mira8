@@ -35,6 +35,7 @@ struct ProductDetailView: View {
                         }
                         .accessibilityLabel(isInShoppingList ? "Remove from shopping list" : "Add to shopping list")
                         .disabled(viewModel.productData.product == nil)
+                        .accessibilityIdentifier("productDetail.shoppingList")
 
                         // Favorite Button
                         Button {
@@ -44,6 +45,7 @@ struct ProductDetailView: View {
                                 .foregroundColor(isFavorite ? .red : .gray)
                         }
                         .accessibilityLabel(isFavorite ? "Remove from favorites" : "Add to favorites")
+                        .accessibilityIdentifier("productDetail.favorite")
                     }
                 }
             }
@@ -62,6 +64,7 @@ struct ProductDetailView: View {
                         .padding(.bottom, Spacing.xl)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .accessibilityLabel("Product added to shopping list")
+                        .accessibilityIdentifier("productDetail.addedToast")
                 }
             }
         .onAppear {
@@ -101,6 +104,7 @@ struct ProductDetailView: View {
                 }
             }
         }
+        .accessibilityIdentifier("screen.productDetail")
     }
 
     @ViewBuilder
@@ -156,6 +160,8 @@ struct ProductDetailView: View {
                     healthFocus: HealthFocus(fromStored: appState.healthFocus)
                 )
 
+                focusSnapshotCard(healthScore)
+
                 // Compare Focuses button
                 Button {
                     showScoreComparison = true
@@ -175,6 +181,7 @@ struct ProductDetailView: View {
                     .background(Color.primaryBlue.opacity(0.08))
                     .cornerRadius(CornerRadius.button)
                 }
+                .accessibilityIdentifier("productDetail.compareFocuses")
             }
 
             // What's Good Section (for lower-scoring products)
@@ -210,7 +217,8 @@ struct ProductDetailView: View {
                 AlternativesSectionView(
                     alternatives: viewModel.alternatives.items,
                     isLoading: viewModel.alternatives.isLoading,
-                    message: viewModel.alternatives.message
+                    message: viewModel.alternatives.message,
+                    healthFocusName: HealthFocus(fromStored: appState.healthFocus).displayName
                 )
             }
 
@@ -223,6 +231,58 @@ struct ProductDetailView: View {
             }
         }
         .padding()
+    }
+
+    @ViewBuilder
+    private func focusSnapshotCard(_ healthScore: HealthScore) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .top, spacing: Spacing.sm) {
+                Image(systemName: healthScore.verdict.systemIcon)
+                    .foregroundColor(Color.scoreColor(for: healthScore.overall))
+                    .font(.headline)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(healthScore.verdict.message)
+                        .font(.headline)
+                        .foregroundColor(.textPrimary)
+
+                    Text("Quick take for \(HealthFocus(fromStored: appState.healthFocus).displayName.lowercased())")
+                        .font(.subheadline)
+                        .foregroundColor(.textSecondary)
+                }
+
+                Spacer()
+            }
+
+            if !healthScore.topReasons.isEmpty {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    ForEach(Array(healthScore.topReasons.prefix(2)), id: \.self) { reason in
+                        HStack(alignment: .top, spacing: Spacing.xs) {
+                            Circle()
+                                .fill(Color.scoreColor(for: healthScore.overall))
+                                .frame(width: 6, height: 6)
+                                .padding(.top, 6)
+
+                            Text(reason)
+                                .font(.subheadline)
+                                .foregroundColor(.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+
+            if !viewModel.alternatives.items.isEmpty {
+                Text("\(viewModel.alternatives.items.count) stronger alternatives found below.")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundColor(.primaryBlue)
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.backgroundSecondary)
+        .cornerRadius(CornerRadius.card)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("productDetail.focusSnapshot")
     }
 
     // MARK: - Sheet Content

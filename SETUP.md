@@ -2,16 +2,14 @@
 
 ## 1. Configure Secrets
 
-1. Copy the build configuration template:
+1. Copy the runtime configuration template:
    ```bash
-   cp App/Configuration/Config.xcconfig.template App/Configuration/Config.xcconfig
+   cp App/Configuration/Configuration.sample.plist App/Configuration/Configuration.plist
    ```
-2. Edit `App/Configuration/Config.xcconfig` and provide your USDA FoodData Central API key.
-3. Copy the runtime configuration template if you plan to use Instacart or Amazon features:
-   ```bash
-   cp "Mira 8/App/Configuration/Configuration.sample.plist" "Mira 8/App/Configuration/Configuration.plist"
-   ```
-4. Fill in the Instacart Connect client ID/secret and Amazon Associates tag inside the new plist. Leaving values blank disables those integrations gracefully.
+2. Edit `App/Configuration/Configuration.plist` and provide the keys you plan to use.
+3. `USDAAPIKey` is required for food lookup coverage.
+4. `ClaudeAPIKey` is optional. Leaving it blank disables photo scan and AI-assisted analysis.
+5. `PrivacyPolicyURL`, `TermsOfServiceURL`, `HelpCenterURL`, and `SupportEmail` are optional in development, but you should populate them before App Store submission.
 
 ## 2. Logging
 
@@ -21,6 +19,11 @@
 
 ## 3. Build
 
+- Install the full Xcode app. `xcodebuild` will not work with Command Line Tools alone.
+- After installing Xcode, point developer tools at it:
+  ```bash
+  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+  ```
+- Open [Mira.xcodeproj](/Users/laurenbarnhart/Mira8/Mira.xcodeproj) in Xcode and let it resolve package/indexing state.
 - The project now targets **iOS 16.0** and later. Ensure your simulator/device meets this requirement.
-- After configuring the files above, clean the build folder and run the app from Xcode.
-
+- After configuring `Configuration.plist`, clean the build folder and run the `Mira 8` scheme from Xcode.

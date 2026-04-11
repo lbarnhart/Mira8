@@ -4,7 +4,6 @@ import SwiftUI
 struct NLSearchView: View {
     @StateObject private var viewModel = NLSearchViewModel()
     @EnvironmentObject private var appState: AppState
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -51,6 +50,19 @@ struct NLSearchView: View {
                     restrictions: appState.dietaryRestrictions
                 )
             }
+            .onChange(of: appState.healthFocus) { newValue in
+                viewModel.configure(
+                    healthFocus: HealthFocus(fromStored: newValue),
+                    restrictions: appState.dietaryRestrictions
+                )
+            }
+            .onChange(of: appState.dietaryRestrictions) { newValue in
+                viewModel.configure(
+                    healthFocus: HealthFocus(fromStored: appState.healthFocus),
+                    restrictions: newValue
+                )
+            }
+            .accessibilityIdentifier("screen.search")
         }
     }
 
@@ -187,7 +199,7 @@ struct NLSearchView: View {
             Text("No products found")
                 .font(.headline)
 
-            Text("Try adjusting your search or removing some filters")
+            Text("Try adjusting your search or removing some filters for \(HealthFocus(fromStored: appState.healthFocus).displayName.lowercased()).")
                 .font(.callout)
                 .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
@@ -229,9 +241,15 @@ struct NLSearchView: View {
 
             // Suggested searches
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text("Suggestions")
-                    .font(.headline)
-                    .foregroundColor(.textPrimary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Suggestions")
+                        .font(.headline)
+                        .foregroundColor(.textPrimary)
+
+                    Text("Personalized for \(HealthFocus(fromStored: appState.healthFocus).displayName.lowercased())")
+                        .font(.caption)
+                        .foregroundColor(.textSecondary)
+                }
 
                 ForEach(viewModel.suggestedQueries, id: \.self) { suggestion in
                     Button {
@@ -260,19 +278,72 @@ struct NLSearchView: View {
 
     private var resultsView: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
+            if let topResult = viewModel.results.first {
+                NavigationLink(destination: ProductDetailView(barcode: topResult.product.barcode)) {
+                    topResultSpotlight(topResult)
+                }
+                .buttonStyle(.plain)
+            }
+
             Text("\(viewModel.results.count) results")
                 .font(.caption)
                 .foregroundColor(.textTertiary)
 
             LazyVStack(spacing: Spacing.md) {
-                ForEach(viewModel.results) { result in
+                ForEach(Array(viewModel.results.dropFirst())) { result in
                     NavigationLink(destination: ProductDetailView(barcode: result.product.barcode)) {
-                        SearchResultCard(result: result)
+                        SearchResultCard(
+                            result: result,
+                            currentFocus: HealthFocus(fromStored: appState.healthFocus)
+                        )
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
+    }
+
+    private func topResultSpotlight(_ result: NLSearchResult) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                Label("Best Match for \(HealthFocus(fromStored: appState.healthFocus).displayName)", systemImage: "sparkles")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.primaryBlue)
+
+                Spacer()
+
+                Text("\(Int(result.healthScore.overall.rounded()))")
+                    .font(.title3.bold())
+                    .foregroundColor(scoreColor(result.healthScore.overall))
+            }
+
+            Text(result.product.name)
+                .font(.headline)
+                .foregroundColor(.textPrimary)
+                .lineLimit(2)
+
+            Text(topResultReason(for: result))
+                .font(.subheadline)
+                .foregroundColor(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !result.matchedFilters.isEmpty {
+                HStack(spacing: Spacing.xs) {
+                    ForEach(result.matchedFilters.prefix(3), id: \.self) { filter in
+                        SearchFilterTag(text: filter)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(
+            LinearGradient(
+                colors: [Color.primaryBlue.opacity(0.12), Color.oceanTeal.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(CornerRadius.card)
     }
 
     // MARK: - Sort Menu
@@ -294,6 +365,27 @@ struct NLSearchView: View {
         } label: {
             Image(systemName: "arrow.up.arrow.down")
                 .foregroundColor(.primaryBlue)
+        }
+    }
+
+    private func topResultReason(for result: NLSearchResult) -> String {
+        if let reason = result.healthScore.topReasons.first, !reason.isEmpty {
+            return reason
+        }
+
+        if !result.matchedFilters.isEmpty {
+            return "Matches \(result.matchedFilters.prefix(2).joined(separator: " and ")) for your search."
+        }
+
+        return "\(result.healthScore.verdict.message) for \(HealthFocus(fromStored: appState.healthFocus).displayName.lowercased())."
+    }
+
+    private func scoreColor(_ score: Double) -> Color {
+        switch score {
+        case 80...100: return .scoreExcellent
+        case 60..<80: return .scoreGood
+        case 40..<60: return .scoreFair
+        default: return .scorePoor
         }
     }
 }
@@ -345,6 +437,7 @@ struct RecentSearchRow: View {
 
 struct SearchResultCard: View {
     let result: NLSearchResult
+    let currentFocus: HealthFocus
 
     var body: some View {
         HStack(spacing: Spacing.md) {
@@ -400,6 +493,11 @@ struct SearchResultCard: View {
                         }
                     }
                 }
+
+                Text(explanationText)
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+                    .lineLimit(2)
             }
 
             Spacer()
@@ -414,6 +512,10 @@ struct SearchResultCard: View {
                 Text("score")
                     .font(.caption2)
                     .foregroundColor(.textTertiary)
+
+                Text(result.healthScore.verdict.label)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundColor(scoreColor(result.healthScore.overall))
             }
         }
         .padding()
@@ -473,6 +575,18 @@ struct SearchResultCard: View {
         case 40..<60: return .scoreFair
         default: return .scorePoor
         }
+    }
+
+    private var explanationText: String {
+        if let reason = result.healthScore.topReasons.first, !reason.isEmpty {
+            return reason
+        }
+
+        if !result.matchedFilters.isEmpty {
+            return "Strong match for \(currentFocus.displayName.lowercased()) and your search filters."
+        }
+
+        return result.healthScore.verdict.message
     }
 }
 

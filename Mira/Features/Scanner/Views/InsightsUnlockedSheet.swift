@@ -53,8 +53,8 @@ struct InsightsUnlockedSheet: View {
 
                     insightBenefit(
                         icon: "sparkles",
-                        title: "AI Recommendations",
-                        description: "Get personalized tips to improve your health"
+                        title: "Personalized Recommendations",
+                        description: "Get tailored next steps based on the products you scan"
                     )
 
                     insightBenefit(

@@ -8,7 +8,7 @@ final class ShoppingListViewModel: ObservableObject {
     @Published var sortOption: SortOption = .dateAdded
     @Published var filterOption: FilterOption = .all
 
-    private let storageKey = "shopping_list_items"
+    private let storageKey = Constants.UserDefaults.shoppingListItems
 
     enum SortOption: String, CaseIterable {
         case dateAdded = "Date Added"

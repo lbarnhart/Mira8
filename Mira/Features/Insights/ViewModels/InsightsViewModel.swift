@@ -137,6 +137,14 @@ final class InsightsViewModel: ObservableObject {
         profile?.averages
     }
 
+    var nextPriorityAction: RecommendedAction? {
+        recommendations.sorted { $0.priority < $1.priority }.first
+    }
+
+    var primaryGap: NutritionGap? {
+        topGaps.first
+    }
+
     // MARK: - Period Selection
 
     func selectPeriod(_ period: AnalysisPeriod) async {

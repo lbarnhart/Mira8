@@ -45,6 +45,7 @@ struct OnboardingView: View {
         } message: {
             Text(viewModel.errorMessage ?? "We couldn't save your preferences. Please try again.")
         }
+        .accessibilityIdentifier("screen.onboarding")
     }
 
     private var header: some View {
@@ -58,6 +59,7 @@ struct OnboardingView: View {
             }
             .font(.body.weight(.semibold))
             .foregroundColor(.textSecondary)
+            .accessibilityIdentifier("onboarding.skip")
         }
     }
 
@@ -66,6 +68,7 @@ struct OnboardingView: View {
             PrimaryButton(buttonTitle, isFullWidth: true, isEnabled: isPrimaryEnabled) {
                 handlePrimaryAction()
             }
+            .accessibilityIdentifier("onboarding.primary")
 
             if currentPage == 2 {
                 Text("You can update these preferences anytime in Settings.")

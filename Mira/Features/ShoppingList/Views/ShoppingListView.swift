@@ -59,6 +59,7 @@ struct ShoppingListView: View {
                         .environmentObject(appState)
                 }
             }
+            .accessibilityIdentifier("screen.shoppingList")
         }
     }
 
@@ -99,9 +100,11 @@ struct ShoppingListView: View {
             .padding(.top, Spacing.md)
             .accessibilityLabel("Start scanning products")
             .accessibilityHint("Switches to scanner tab to add products to your list")
+            .accessibilityIdentifier("shoppingList.startScanning")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("shoppingList.empty")
     }
 
     // MARK: - List Content
@@ -167,6 +170,7 @@ struct ShoppingListView: View {
                                 viewModel.removeItem(item)
                             }
                         )
+                        .accessibilityIdentifier("shoppingList.item.\(item.barcode)")
                     }
                 }
                 .padding(.horizontal, Spacing.screenPadding)
@@ -384,6 +388,7 @@ private struct ShoppingListItemRow: View {
         .padding(Spacing.md)
         .background(Color.cardBackground)
         .cornerRadius(CornerRadius.card)
+        .accessibilityIdentifier("shoppingList.row.\(item.barcode)")
     }
 }
 

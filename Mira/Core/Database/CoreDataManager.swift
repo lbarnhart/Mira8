@@ -263,6 +263,28 @@ final class CoreDataManager {
         }
     }
 
+    func clearAllData() throws {
+        let context = persistenceController.newBackgroundContext()
+        var capturedError: Error?
+
+        context.performAndWait {
+            do {
+                try batchDeleteAll(ScanHistoryEntity.fetchRequest(), in: context)
+                try batchDeleteAll(ProductEntity.fetchRequest(), in: context)
+                try batchDeleteAll(UserProfileEntity.fetchRequest(), in: context)
+                try context.save()
+            } catch {
+                context.rollback()
+                capturedError = error
+            }
+        }
+
+        if let error = capturedError {
+            logger.error("Failed to clear persistent data: \(error.localizedDescription, privacy: .public)")
+            throw error
+        }
+    }
+
     func deleteScanHistory(_ scan: ScanHistoryEntity) throws {
         let context = persistenceController.container.viewContext
         var capturedError: Error?
@@ -282,6 +304,18 @@ final class CoreDataManager {
         if let error = capturedError {
             logger.error("Failed to delete scan history: \(error.localizedDescription, privacy: .public)")
             throw error
+        }
+    }
+
+    private func batchDeleteAll(_ fetchRequest: NSFetchRequest<NSFetchRequestResult>, in context: NSManagedObjectContext) throws {
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        deleteRequest.resultType = .resultTypeObjectIDs
+
+        if let result = try context.execute(deleteRequest) as? NSBatchDeleteResult,
+           let objectIDs = result.result as? [NSManagedObjectID],
+           !objectIDs.isEmpty {
+            let changes = [NSDeletedObjectsKey: objectIDs]
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: changes, into: [context, persistenceController.container.viewContext])
         }
     }
 

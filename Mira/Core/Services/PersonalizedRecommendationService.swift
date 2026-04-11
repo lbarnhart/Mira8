@@ -49,10 +49,20 @@ actor PersonalizedRecommendationService {
         let insight: WeeklyInsight
 
         if profile.hasEnoughData {
-            insight = try await generateAIInsight(
-                profile: profile,
-                dietaryRestrictions: dietaryRestrictions
-            )
+            if await claudeService.isConfigured {
+                do {
+                    insight = try await generateAIInsight(
+                        profile: profile,
+                        dietaryRestrictions: dietaryRestrictions
+                    )
+                } catch {
+                    logger.warning("AI insight generation failed, using deterministic fallback: \(error.localizedDescription)")
+                    insight = generateFallbackInsight(profile: profile)
+                }
+            } else {
+                logger.info("Claude is not configured, using deterministic fallback insight")
+                insight = generateFallbackInsight(profile: profile)
+            }
         } else {
             insight = generateMinimalDataInsight(
                 profile: profile,

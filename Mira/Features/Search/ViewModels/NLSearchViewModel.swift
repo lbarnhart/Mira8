@@ -256,7 +256,14 @@ final class NLSearchViewModel: ObservableObject {
     private func sortResults() {
         switch sortOption {
         case .relevance:
-            results.sort { $0.relevanceScore > $1.relevanceScore }
+            results.sort {
+                let lhsComposite = ($0.relevanceScore * 0.65) + (($0.healthScore.overall / 100) * 0.35)
+                let rhsComposite = ($1.relevanceScore * 0.65) + (($1.healthScore.overall / 100) * 0.35)
+                if abs(lhsComposite - rhsComposite) < 0.01 {
+                    return $0.healthScore.overall > $1.healthScore.overall
+                }
+                return lhsComposite > rhsComposite
+            }
         case .healthScore:
             results.sort { $0.healthScore.overall > $1.healthScore.overall }
         case .proteinHighToLow:
@@ -370,6 +377,68 @@ final class NLSearchViewModel: ObservableObject {
 
     func configure(healthFocus: HealthFocus, restrictions: Set<String>) {
         self.healthFocus = healthFocus
-        self.dietaryRestrictions = restrictions.compactMap { DietaryRestriction(from: $0) }
+        self.dietaryRestrictions = DietaryRestriction.fromStrings(restrictions)
+        self.suggestedQueries = Self.personalizedSuggestions(
+            for: healthFocus,
+            restrictions: self.dietaryRestrictions
+        )
+    }
+
+    private static func personalizedSuggestions(
+        for healthFocus: HealthFocus,
+        restrictions: [DietaryRestriction]
+    ) -> [String] {
+        var suggestions: [String]
+
+        switch healthFocus {
+        case .proteinFocus:
+            suggestions = [
+                "high protein greek yogurt",
+                "high protein snacks under 200 calories",
+                "protein bars with low sugar",
+                "high protein breakfast options",
+                "lean high protein frozen meals"
+            ]
+        case .gutHealth:
+            suggestions = [
+                "high fiber snacks",
+                "gut friendly breakfast cereals",
+                "low sugar yogurt with probiotics",
+                "fiber rich soups",
+                "minimally processed gut health snacks"
+            ]
+        case .heartHealth:
+            suggestions = [
+                "low sodium soups",
+                "heart healthy frozen meals",
+                "high fiber crackers",
+                "low saturated fat snacks",
+                "low sodium breakfast options"
+            ]
+        case .weightLoss:
+            suggestions = [
+                "high protein low calorie snacks",
+                "under 200 calorie breakfasts",
+                "low sugar protein bars",
+                "high fiber low calorie meals",
+                "filling snacks under 150 calories"
+            ]
+        case .generalWellness:
+            suggestions = [
+                "high fiber bars",
+                "low sugar breakfast cereals",
+                "balanced healthy snacks",
+                "better frozen meal options",
+                "clean ingredient crackers"
+            ]
+        }
+
+        if restrictions.contains(.vegan) {
+            suggestions.insert("vegan \(healthFocus == .proteinFocus ? "high protein snacks" : "healthy snacks")", at: 0)
+        } else if restrictions.contains(.glutenFree) {
+            suggestions.insert("gluten free \(healthFocus == .gutHealth ? "high fiber snacks" : "healthy snacks")", at: 0)
+        }
+
+        return Array(suggestions.prefix(5))
     }
 }

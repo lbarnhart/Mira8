@@ -6,12 +6,12 @@ struct AppConfiguration {
     private static var hasWarnedMissingUSDAKey = false
 
     private enum ConfigurationKey: String {
-        case instacartClientID = "InstacartClientID"
-        case instacartClientSecret = "InstacartClientSecret"
-        case instacartRedirectURI = "InstacartRedirectURI"
-        case amazonAssociateTag = "AmazonAssociateTag"
         case usdaAPIKey = "USDAAPIKey"
         case claudeAPIKey = "ClaudeAPIKey"
+        case privacyPolicyURL = "PrivacyPolicyURL"
+        case termsOfServiceURL = "TermsOfServiceURL"
+        case helpCenterURL = "HelpCenterURL"
+        case supportEmail = "SupportEmail"
     }
 
     private let values: [String: Any]
@@ -50,14 +50,22 @@ struct AppConfiguration {
         }
     }
 
+    private func url(for key: ConfigurationKey) -> URL? {
+        guard let value = string(for: key) else { return nil }
+        return URL(string: value)
+    }
+
     private func fallbackValue(for key: ConfigurationKey) -> String? {
         #if DEBUG
         switch key {
-        case .instacartRedirectURI:
-            return Constants.Instacart.defaultRedirectURI
         case .usdaAPIKey:
             return Constants.API.defaultUSDAAPIKey
-        case .instacartClientID, .instacartClientSecret, .amazonAssociateTag, .claudeAPIKey:
+        case .claudeAPIKey:
+            return nil
+        case .privacyPolicyURL,
+             .termsOfServiceURL,
+             .helpCenterURL,
+             .supportEmail:
             return nil
         }
         #else
@@ -72,22 +80,6 @@ struct AppConfiguration {
         default:
             return string(for: key) ?? fallbackValue(for: key)
         }
-    }
-
-    var instacartClientID: String {
-        value(for: .instacartClientID) ?? ""
-    }
-
-    var instacartClientSecret: String {
-        value(for: .instacartClientSecret) ?? ""
-    }
-
-    var instacartRedirectURI: String {
-        value(for: .instacartRedirectURI) ?? Constants.Instacart.defaultRedirectURI
-    }
-
-    var amazonAssociateTag: String {
-        value(for: .amazonAssociateTag) ?? ""
     }
 
     var usdaAPIKey: String {
@@ -108,5 +100,26 @@ struct AppConfiguration {
             AppLog.warning("Claude API key is not configured. AI features will be disabled.", category: .configuration)
         }
         return value
+    }
+
+    var privacyPolicyURL: URL? {
+        url(for: .privacyPolicyURL)
+    }
+
+    var termsOfServiceURL: URL? {
+        url(for: .termsOfServiceURL)
+    }
+
+    var helpCenterURL: URL? {
+        url(for: .helpCenterURL)
+    }
+
+    var supportEmailAddress: String? {
+        string(for: .supportEmail)
+    }
+
+    var supportEmailURL: URL? {
+        guard let email = supportEmailAddress else { return nil }
+        return URL(string: "mailto:\(email)")
     }
 }

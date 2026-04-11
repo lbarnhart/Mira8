@@ -79,9 +79,21 @@ struct ComparisonModeView: View {
                         .foregroundColor(.textPrimary)
                         .accessibilityAddTraits(.isHeader)
 
+                    Text("Scores reflect \(HealthFocus(fromStored: appState.healthFocus).displayName.lowercased()) priorities.")
+                        .font(.subheadline)
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+
                     if let bestProduct = viewModel.bestProduct {
                         BestChoiceBadge(product: bestProduct, reason: viewModel.bestChoiceReason)
                     }
+
+                    ComparisonInsightSummary(
+                        summary: viewModel.comparisonSummary(for: appState.healthFocus),
+                        scoreSpread: viewModel.scoreSpread,
+                        metricWins: viewModel.bestProductMetricWins,
+                        highlights: viewModel.bestChoiceHighlights
+                    )
                 }
                 .padding(.horizontal, Spacing.screenPadding)
 
@@ -168,6 +180,68 @@ private struct BestChoiceBadge: View {
     }
 }
 
+private struct ComparisonInsightSummary: View {
+    let summary: String
+    let scoreSpread: Int
+    let metricWins: Int
+    let highlights: [String]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text(summary)
+                .font(.subheadline)
+                .foregroundColor(.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if scoreSpread > 0 || metricWins > 0 {
+                HStack(spacing: Spacing.sm) {
+                    if scoreSpread > 0 {
+                        metricCard(title: "Spread", value: "\(scoreSpread) pts")
+                    }
+
+                    if metricWins > 0 {
+                        metricCard(title: "Metric Wins", value: "\(metricWins)")
+                    }
+                }
+            }
+
+            if !highlights.isEmpty {
+                HStack(spacing: Spacing.xs) {
+                    ForEach(highlights, id: \.self) { highlight in
+                        Text(highlight)
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.primaryBlue)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, 6)
+                            .background(Color.primaryBlue.opacity(0.1))
+                            .cornerRadius(CornerRadius.pill)
+                    }
+                }
+            }
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.backgroundSecondary)
+        .cornerRadius(CornerRadius.card)
+    }
+
+    private func metricCard(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .foregroundColor(.textTertiary)
+
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.textPrimary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.sm)
+        .background(Color.backgroundPrimary)
+        .cornerRadius(CornerRadius.button)
+    }
+}
+
 // MARK: - Comparison Table
 
 private struct ComparisonTable: View {
@@ -178,6 +252,17 @@ private struct ComparisonTable: View {
 
     var body: some View {
         VStack(spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Snapshot")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.textTertiary)
+
+                Text("Scored for \(HealthFocus(fromStored: healthFocus).displayName.lowercased())")
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             // Product headers
             HStack(alignment: .top, spacing: Spacing.sm) {
                 // Metric label column
@@ -338,6 +423,10 @@ private struct ProductHeaderCard: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
+
+                Text("\(Int(product.healthScore.rounded()))")
+                    .font(.caption.weight(.bold))
+                    .foregroundColor(Color.scoreColor(for: product.healthScore))
             }
             .frame(maxWidth: .infinity)
             .padding(Spacing.sm)

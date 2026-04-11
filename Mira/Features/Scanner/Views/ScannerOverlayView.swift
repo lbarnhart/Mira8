@@ -18,7 +18,7 @@ struct ScannerOverlayView: View {
             ScannerFrameView(isActive: isScanning && !hasScannedProduct)
 
             // Instruction text below the frame
-            InstructionTextView()
+            InstructionTextView(hasFilterMode: hasFilterMode)
                 .padding(.top, 20)
 
             Spacer()
@@ -145,6 +145,7 @@ private struct ScanningIndicatorView: View {
         }
     }
 }
+
 private struct ScannedIndicatorView: View {
     var body: some View {
         HStack(spacing: 8) {
@@ -158,6 +159,7 @@ private struct ScannedIndicatorView: View {
         }
     }
 }
+
 private struct ErrorMessageView: View {
     let message: String
     let onDismiss: () -> Void
@@ -190,14 +192,19 @@ private struct ErrorMessageView: View {
         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
     }
 }
+
 private struct InstructionTextView: View {
+    let hasFilterMode: Bool
+
     var body: some View {
         VStack(spacing: 12) {
-            Text("Position the barcode within the frame")
+            Text(hasFilterMode ? "Position the barcode to scan with dietary filter on" : "Position the barcode within the frame")
                 .font(.headline)
                 .foregroundColor(.white)
 
-            Text("The camera will automatically scan when a barcode is detected")
+            Text(hasFilterMode
+                 ? "We’ll flag products that may not fit your saved dietary restrictions."
+                 : "The camera will automatically scan when a barcode is detected")
                 .font(.caption)
                 .foregroundColor(.white.opacity(0.85))
                 .multilineTextAlignment(.center)

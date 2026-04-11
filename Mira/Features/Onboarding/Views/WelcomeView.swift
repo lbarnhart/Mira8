@@ -6,16 +6,33 @@ struct WelcomeView: View {
         VStack(spacing: Spacing.xl) {
             VStack(spacing: Spacing.md) {
                 Group {
-                    if let uiImage = UIImage(named: "welcomeIcon") {
+                    if let uiImage = UIImage(named: "MiraLogo") {
                         Image(uiImage: uiImage)
                             .resizable()
                             .scaledToFit()
+                    } else {
+                        Image(systemName: "leaf.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .foregroundColor(.primaryBlue)
                     }
                 }
-                .frame(width: 64, height: 64)
+                .frame(width: 72, height: 72)
                 .padding()
                 .background(Color.primaryBlue.opacity(0.08))
                 .cornerRadius(CornerRadius.sm)
+
+                VStack(spacing: Spacing.xs) {
+                    Text("Welcome to Mira")
+                        .font(.largeTitle.bold())
+                        .foregroundColor(.textPrimary)
+
+                    Text("Scan food products, understand the tradeoffs fast, and make better choices for your health focus.")
+                        .font(.body)
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, Spacing.screenPadding)
             }
             .padding(.top, Spacing.lg)
 

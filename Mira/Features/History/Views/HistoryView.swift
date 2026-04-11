@@ -17,6 +17,7 @@ struct HistoryView: View {
                         systemImage: "tray"
                     )
                     .padding(Spacing.sectionSpacing)
+                    .accessibilityIdentifier("history.empty")
                 } else {
                     List {
                         // Pattern Insights Banner
@@ -80,6 +81,7 @@ struct HistoryView: View {
                     }
                 )
             }
+            .accessibilityIdentifier("screen.history")
         }
     }
 
@@ -207,6 +209,7 @@ struct HistoryView: View {
                         }
                     )
                 }
+                .accessibilityIdentifier("history.row.\(item.product.barcode)")
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
                         viewModel.deleteItem(item)
@@ -282,6 +285,7 @@ private struct HistoryRow: View {
             ScoreGauge(score: Double(item.currentScore), size: 44, style: .minimal)
         }
         .padding(.vertical, Spacing.sm)
+        .accessibilityIdentifier("history.item.\(item.product.barcode)")
     }
 
     private var productName: String {

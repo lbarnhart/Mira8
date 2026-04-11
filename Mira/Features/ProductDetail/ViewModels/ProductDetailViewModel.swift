@@ -44,22 +44,6 @@ struct LoadingState {
     }
 }
 
-/// Amazon integration state
-struct AmazonState {
-    var isSearching = false
-    var errorMessage: String?
-    var searchQuery: String?
-}
-
-/// Instacart integration state
-struct InstacartState {
-    var isAuthenticated = false
-    var isAddingToCart = false
-    var cartCount = 0
-    var errorMessage: String?
-    var didAddToCart = false
-}
-
 // MARK: - ViewModel
 
 @MainActor
@@ -69,8 +53,6 @@ final class ProductDetailViewModel: ObservableObject {
     @Published var dietary = DietaryState()
     @Published var alternatives = AlternativesState()
     @Published var loading = LoadingState()
-    @Published var amazon = AmazonState()
-    @Published var instacart = InstacartState()
 
     // MARK: - Convenience Accessors (for backward compatibility)
     var product: ProductModel? { productData.product }
@@ -88,20 +70,10 @@ final class ProductDetailViewModel: ObservableObject {
     var isLoadingAlternatives: Bool { alternatives.isLoading }
     var errorMessage: String? { loading.errorMessage }
     var showError: Bool { loading.showError }
-    var isSearchingAmazon: Bool { amazon.isSearching }
-    var amazonErrorMessage: String? { amazon.errorMessage }
-    var amazonSearchQuery: String? { amazon.searchQuery }
-    var isInstacartAuthenticated: Bool { instacart.isAuthenticated }
-    var isAddingToInstacart: Bool { instacart.isAddingToCart }
-    var instacartCartCount: Int { instacart.cartCount }
-    var instacartErrorMessage: String? { instacart.errorMessage }
-    var instacartDidAddToCart: Bool { instacart.didAddToCart }
 
     // MARK: - Dependencies
     private let productService: ProductServiceProtocol
     private let scoringEngine: ScoringEngine
-    private let amazonService: AmazonServicing
-    private let instacartService: InstacartService
     private let dietaryAIService = DietaryAIService.shared
     private var cancellables = Set<AnyCancellable>()
     private var dietaryAnalysisTask: Task<Void, Never>?
@@ -112,14 +84,10 @@ final class ProductDetailViewModel: ObservableObject {
 
     init(
         productService: ProductServiceProtocol = ProductService.shared,
-        scoringEngine: ScoringEngine = .shared,
-        amazonService: AmazonServicing = AmazonService.shared,
-        instacartService: InstacartService = .shared
+        scoringEngine: ScoringEngine = .shared
     ) {
         self.productService = productService
         self.scoringEngine = scoringEngine
-        self.amazonService = amazonService
-        self.instacartService = instacartService
     }
 
     func loadProduct(barcode: String) {
@@ -286,110 +254,6 @@ final class ProductDetailViewModel: ObservableObject {
         loading.clearError()
     }
 
-    func fetchAmazonLink(for product: ProductModel) async -> URL? {
-        amazon.isSearching = true
-        amazon.errorMessage = nil
-        amazon.searchQuery = nil
-
-        defer { amazon.isSearching = false }
-
-        let brand = product.brand ?? ""
-        if let url = amazonService.generateProductLink(
-            name: product.name,
-            brand: brand,
-            barcode: product.barcode
-        ) {
-            if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-               let queryItem = components.queryItems?.first(where: { $0.name == Constants.Amazon.searchQueryKey }),
-               let value = queryItem.value {
-                amazon.searchQuery = value.replacingOccurrences(of: "+", with: " ")
-            }
-            return url
-        } else {
-            amazon.errorMessage = "Unable to build Amazon link for this product."
-            return nil
-        }
-    }
-
-    func loadInstacartState() {
-        Task { [weak self] in
-            guard let self else { return }
-            let authenticated = await instacartService.isAuthenticated()
-            await MainActor.run {
-                self.instacart.isAuthenticated = authenticated
-            }
-
-            guard authenticated else { return }
-
-            do {
-                let count = try await instacartService.getCartItemCount()
-                await MainActor.run {
-                    self.instacart.cartCount = count
-                }
-            } catch {
-                AppLog.warning("Instacart cart count fetch failed: \(error.localizedDescription)", category: .network)
-            }
-        }
-    }
-
-    func handleInstacartConnected() {
-        instacart.isAuthenticated = true
-        instacart.errorMessage = nil
-        loadInstacartState()
-    }
-
-    func addCurrentProductToInstacart() {
-        guard let product = productData.product else { return }
-        guard instacart.isAuthenticated else {
-            instacart.errorMessage = InstacartServiceError.notAuthenticated.errorDescription
-            return
-        }
-
-        instacart.isAddingToCart = true
-        instacart.errorMessage = nil
-        instacart.didAddToCart = false
-
-        Task { [weak self] in
-            guard let self else { return }
-
-            do {
-                let instacartProduct = try await instacartService.searchProduct(
-                    upc: product.barcode,
-                    name: product.name,
-                    brand: product.brand ?? ""
-                )
-
-                guard let candidate = instacartProduct else {
-                    await MainActor.run {
-                        self.instacart.errorMessage = InstacartServiceError.productNotFound.errorDescription
-                        self.instacart.didAddToCart = false
-                        self.instacart.isAddingToCart = false
-                    }
-                    return
-                }
-
-                _ = try await instacartService.addToCart(product: candidate)
-                let newCount = try await instacartService.getCartItemCount()
-
-                await MainActor.run {
-                    self.instacart.cartCount = newCount
-                    self.instacart.didAddToCart = true
-                    self.instacart.isAddingToCart = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.instacart.errorMessage = error.localizedDescription
-                    self.instacart.didAddToCart = false
-                    self.instacart.isAddingToCart = false
-                }
-            }
-        }
-    }
-
-    func resetInstacartFeedback() {
-        instacart.didAddToCart = false
-    }
-
     private func updateDietaryRestrictionResults() {
         guard !currentDietaryRestrictionIds.isEmpty else {
             dietary.results = []
@@ -527,13 +391,16 @@ final class ProductService: ProductServiceProtocol {
 
     private let usdaService: USDAService
     private let openFoodFactsService: OpenFoodFactsService
+    private let coreDataManager: CoreDataManager
 
     private init(
         usdaService: USDAService = .shared,
-        openFoodFactsService: OpenFoodFactsService = .shared
+        openFoodFactsService: OpenFoodFactsService = .shared,
+        coreDataManager: CoreDataManager = .shared
     ) {
         self.usdaService = usdaService
         self.openFoodFactsService = openFoodFactsService
+        self.coreDataManager = coreDataManager
     }
 
     func getProduct(by barcode: String) -> AnyPublisher<ProductModel, Error> {
@@ -571,6 +438,17 @@ final class ProductService: ProductServiceProtocol {
     }
 
     private func loadProductWithFallbacks(barcode: String) async throws -> ProductModel {
+        if let storedProduct = try? coreDataManager.fetchProduct(byBarcode: barcode) {
+            AppLog.debug("Using locally stored product for \(barcode)", category: .network)
+            return convertStoredProduct(storedProduct)
+        }
+
+        if let localItem = await LocalCatalogService.shared.product(for: barcode) {
+            AppLog.debug("Using bundled local catalog product for \(barcode)", category: .network)
+            let localProduct = await LocalCatalogService.shared.makeAPIProduct(from: localItem)
+            return convertAPIProduct(localProduct)
+        }
+
         // Run USDA and Open Food Facts lookups in parallel for faster loading
         async let usdaTask: APIProduct? = fetchUSDAProduct(barcode: barcode)
         async let offTask: APIProduct? = fetchOFFProduct(barcode: barcode)
@@ -781,6 +659,50 @@ final class ProductService: ProductServiceProtocol {
             updatedAt: Date(),
             isCached: false,
             rawIngredientsText: api.rawIngredientsText
+        )
+    }
+
+    private func convertStoredProduct(_ stored: Product) -> ProductModel {
+        let ingredientList = (stored.ingredients ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        let processingLevel = ProcessingLevel.determine(for: ingredientList)
+        let servingDisplay = stored.servingSize?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let servingText = (servingDisplay?.isEmpty == false) ? servingDisplay! : "100g"
+
+        return ProductModel(
+            id: UUID(uuidString: stored.id) ?? UUID(),
+            name: stored.name,
+            brand: stored.brand,
+            category: stored.category,
+            categorySlug: stored.category?.lowercased().replacingOccurrences(of: " ", with: "-"),
+            barcode: stored.barcode,
+            nutrition: ProductNutrition(
+                calories: stored.nutritionalData.calories,
+                protein: stored.nutritionalData.protein,
+                carbohydrates: stored.nutritionalData.carbohydrates,
+                fat: stored.nutritionalData.fat,
+                saturatedFat: stored.nutritionalData.saturatedFat,
+                fiber: stored.nutritionalData.fiber,
+                sugar: stored.nutritionalData.sugar,
+                sodium: stored.nutritionalData.sodium,
+                cholesterol: stored.nutritionalData.cholesterol,
+                servingSize: servingText
+            ),
+            ingredients: ingredientList,
+            additives: [],
+            processingLevel: processingLevel,
+            dietaryFlags: [],
+            imageURL: stored.imageURL,
+            thumbnailURL: stored.thumbnailURL,
+            healthScore: 0,
+            createdAt: stored.lastScanned ?? Date(),
+            updatedAt: stored.lastScanned ?? Date(),
+            isCached: true,
+            rawIngredientsText: stored.ingredients,
+            nutriScore: stored.nutriScore
         )
     }
 }

@@ -8,6 +8,7 @@ struct ProfileView: View {
     @State private var statsError: String?
     @State private var showHealthFocusSettings = false
     @State private var showDietarySettings = false
+    @State private var showSettings = false
 
     private let coreDataManager = CoreDataManager.shared
 
@@ -25,11 +26,24 @@ struct ProfileView: View {
             }
             .background(Color.backgroundPrimary.ignoresSafeArea())
             .navigationTitle("Profile")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                    }
+                    .accessibilityIdentifier("profile.settings")
+                }
+            }
             .navigationDestination(isPresented: $showHealthFocusSettings) {
                 HealthFocusSettingsView()
             }
             .navigationDestination(isPresented: $showDietarySettings) {
                 DietaryRestrictionsSettingsView()
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
             .task(loadStats)
             .onChange(of: showHealthFocusSettings) { newValue in
@@ -47,6 +61,7 @@ struct ProfileView: View {
             } message: {
                 Text(statsError ?? "")
             }
+            .accessibilityIdentifier("screen.profile")
         }
     }
 
@@ -95,6 +110,7 @@ struct ProfileView: View {
             .cardStyle(.standard)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile.healthFocus")
     }
 
     private var restrictionsCard: some View {
@@ -121,6 +137,7 @@ struct ProfileView: View {
             .cardStyle(.standard)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile.dietaryRestrictions")
     }
 
     private var statsCard: some View {
@@ -161,6 +178,7 @@ struct ProfileView: View {
         }
         .padding()
         .cardStyle(.standard)
+        .accessibilityIdentifier("profile.stats")
     }
 
     private func loadStats() async {

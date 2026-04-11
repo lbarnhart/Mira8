@@ -14,6 +14,58 @@ final class ComparisonModeViewModel: ObservableObject {
         comparisonProducts.max(by: { $0.healthScore < $1.healthScore })
     }
 
+    var scoreSpread: Int {
+        guard comparisonProducts.count > 1 else { return 0 }
+        let scores = comparisonProducts.map(\.healthScore)
+        return Int((scores.max() ?? 0) - (scores.min() ?? 0))
+    }
+
+    var bestProductMetricWins: Int {
+        guard let best = bestProduct, comparisonProducts.count > 1 else { return 0 }
+
+        var wins = 0
+        if best.healthScore == comparisonProducts.map(\.healthScore).max() { wins += 1 }
+        if best.nutrition.protein == comparisonProducts.map({ $0.nutrition.protein }).max() { wins += 1 }
+        if best.nutrition.fiber == comparisonProducts.map({ $0.nutrition.fiber }).max() { wins += 1 }
+        if best.nutrition.sugar == comparisonProducts.map({ $0.nutrition.sugar }).min() { wins += 1 }
+        if best.nutrition.sodium == comparisonProducts.map({ $0.nutrition.sodium }).min() { wins += 1 }
+        if best.nutrition.calories == comparisonProducts.map({ $0.nutrition.calories }).min() { wins += 1 }
+
+        return wins
+    }
+
+    var bestChoiceHighlights: [String] {
+        guard let best = bestProduct,
+              comparisonProducts.count > 1 else {
+            return []
+        }
+
+        var highlights: [String] = []
+
+        if best.healthScore == comparisonProducts.map(\.healthScore).max() {
+            highlights.append("Highest overall score")
+        }
+        if best.nutrition.protein == comparisonProducts.map({ $0.nutrition.protein }).max(),
+           best.nutrition.protein > 0 {
+            highlights.append("Leads on protein")
+        }
+        if best.nutrition.fiber == comparisonProducts.map({ $0.nutrition.fiber }).max(),
+           best.nutrition.fiber > 0 {
+            highlights.append("Leads on fiber")
+        }
+        if best.nutrition.sugar == comparisonProducts.map({ $0.nutrition.sugar }).min() {
+            highlights.append("Lowest sugar")
+        }
+        if best.nutrition.sodium == comparisonProducts.map({ $0.nutrition.sodium }).min() {
+            highlights.append("Lowest sodium")
+        }
+        if best.nutrition.calories == comparisonProducts.map({ $0.nutrition.calories }).min() {
+            highlights.append("Lowest calories")
+        }
+
+        return Array(highlights.prefix(3))
+    }
+
     var bestChoiceReason: String {
         guard let best = bestProduct,
               comparisonProducts.count > 1 else {
@@ -57,6 +109,20 @@ final class ComparisonModeViewModel: ObservableObject {
         }
 
         return reasons.prefix(2).joined(separator: " and ")
+    }
+
+    func comparisonSummary(for healthFocus: String) -> String {
+        guard let best = bestProduct,
+              comparisonProducts.count > 1 else {
+            return "Add another product to compare scores for \(HealthFocus(fromStored: healthFocus).displayName.lowercased())."
+        }
+
+        let focusName = HealthFocus(fromStored: healthFocus).displayName.lowercased()
+        if scoreSpread < 5 {
+            return "These options are close for \(focusName), so ingredient and preference tradeoffs matter more than score alone."
+        }
+
+        return "\(best.name) is ahead for \(focusName) with a \(scoreSpread)-point spread and leads in \(bestProductMetricWins) tracked metrics."
     }
 
     func addProduct(_ product: ProductModel) {

@@ -41,6 +41,13 @@ struct InsightsView: View {
                     await viewModel.loadInsights()
                 }
             }
+            .onChange(of: appState.healthFocus) { _ in
+                reloadInsightsForPreferences()
+            }
+            .onChange(of: appState.dietaryRestrictions) { _ in
+                reloadInsightsForPreferences()
+            }
+            .accessibilityIdentifier("screen.insights")
         }
     }
 
@@ -161,6 +168,14 @@ struct InsightsView: View {
 
     private var insightsContent: some View {
         VStack(spacing: Spacing.lg) {
+            if let profile = viewModel.profile {
+                insightSnapshotCard(profile)
+            }
+
+            if let nextAction = viewModel.nextPriorityAction {
+                nextBestMoveCard(nextAction)
+            }
+
             // Weekly summary card
             if let insight = viewModel.weeklyInsight {
                 weeklySummaryCard(insight)
@@ -196,6 +211,68 @@ struct InsightsView: View {
                 averagesSection(averages)
             }
         }
+    }
+
+    private func insightSnapshotCard(_ profile: UserNutritionProfile) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Your \(profile.healthFocus.displayName) Snapshot")
+                        .font(.headline)
+                        .foregroundColor(.textPrimary)
+
+                    Text("\(profile.scanCount) scans across \(viewModel.selectedPeriod.displayName.lowercased())")
+                        .font(.subheadline)
+                        .foregroundColor(.textSecondary)
+                }
+
+                Spacer()
+
+                Text(lastUpdatedDescription(profile.generatedAt))
+                    .font(.caption)
+                    .foregroundColor(.textTertiary)
+            }
+
+            HStack(spacing: Spacing.sm) {
+                insightMetric(title: "Alignment", value: "\(Int(profile.overallHealth.rounded()))")
+                insightMetric(title: "Top Gap", value: viewModel.primaryGap?.nutrient.displayName ?? "None")
+                insightMetric(title: "Patterns", value: "\(viewModel.patterns.count)")
+            }
+        }
+        .padding()
+        .background(Color.backgroundSecondary)
+        .cornerRadius(CornerRadius.md)
+    }
+
+    private func nextBestMoveCard(_ action: RecommendedAction) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Next Best Move")
+                .font(.headline)
+                .foregroundColor(.textPrimary)
+
+            Text(action.action)
+                .font(.title3.weight(.semibold))
+                .foregroundColor(.primaryBlue)
+
+            Text(action.rationale)
+                .font(.callout)
+                .foregroundColor(.textSecondary)
+
+            if let nutrient = action.relatedNutrient {
+                Label(nutrient.displayName, systemImage: nutrient.iconName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.textTertiary)
+            }
+        }
+        .padding()
+        .background(
+            LinearGradient(
+                colors: [Color.oceanTeal.opacity(0.14), Color.primaryBlue.opacity(0.08)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .cornerRadius(CornerRadius.lg)
     }
 
     // MARK: - Weekly Summary Card
@@ -378,6 +455,38 @@ struct InsightsView: View {
         case 60..<80: return .scoreGood
         case 40..<60: return .scoreFair
         default: return .scorePoor
+        }
+    }
+
+    private func insightMetric(title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased())
+                .font(.caption2.weight(.semibold))
+                .foregroundColor(.textTertiary)
+
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.textPrimary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.sm)
+        .background(Color.backgroundPrimary)
+        .cornerRadius(CornerRadius.button)
+    }
+
+    private func lastUpdatedDescription(_ date: Date) -> String {
+        RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+    }
+
+    private func reloadInsightsForPreferences() {
+        viewModel.configure(
+            healthFocus: appState.healthFocus,
+            restrictions: appState.dietaryRestrictions
+        )
+
+        Task {
+            await viewModel.loadInsights()
         }
     }
 }
