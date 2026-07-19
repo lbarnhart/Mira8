@@ -18,7 +18,6 @@ env:
   DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
   PROJECT: Mira.xcodeproj
   SCHEME: Mira 8
-  SIMULATOR_DESTINATION: platform=iOS Simulator,name=iPhone 17 Pro,OS=26.5
 
 jobs:
   unit-and-release:
@@ -34,6 +33,9 @@ jobs:
         run: |
           xcodebuild -version
           xcodebuild -showsdks
+
+      - name: Prepare iOS simulator
+        run: bash .github/scripts/prepare-ios-simulator.sh
 
       - name: Run unit and integration tests
         run: |
@@ -78,6 +80,9 @@ jobs:
 
       - name: Verify toolchain
         run: xcodebuild -version
+
+      - name: Prepare iOS simulator
+        run: bash .github/scripts/prepare-ios-simulator.sh
 
       - name: Run functional and launch UI tests
         run: |
