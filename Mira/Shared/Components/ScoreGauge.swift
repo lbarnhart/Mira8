@@ -138,7 +138,7 @@ struct ScoreGauge: View {
             // Inner content
             VStack(spacing: style == .minimal ? 0 : 2) {
                 // Score number
-                Text("\(Int(displayScore))")
+                Text("\(Int(displayScore.rounded()))")
                     .font(scoreFont)
                     .fontWeight(.bold)
                     .foregroundColor(scoreColor)
@@ -153,7 +153,7 @@ struct ScoreGauge: View {
                             .foregroundColor(.textTertiary)
 
                         if style.showPercentage {
-                            Text("\(Int(displayScore))%")
+                            Text("\(Int(displayScore.rounded()))%")
                                 .font(.caption2)
                                 .foregroundColor(.textQuaternary)
                         }

@@ -345,7 +345,20 @@ final class ScoringInputNormalizer {
     private func computeNutrientAvailability(from nutrition: ProductNutrition) -> NutrientAvailability {
         var availability: NutrientAvailability = []
 
-        // Consider a nutrient available if it has a non-zero value
+        // Prefer source-level field presence so a declared zero is not confused
+        // with a missing value. Older cached products do not have this metadata,
+        // so retain the previous non-zero inference as a compatibility fallback.
+        if let sourceAvailability = nutrition.availability,
+           sourceAvailability.hasExplicitScoringFields {
+            if sourceAvailability.hasEnergy == true { availability.insert(.energy) }
+            if sourceAvailability.hasSugar == true { availability.insert(.sugar) }
+            if sourceAvailability.hasSaturatedFat == true { availability.insert(.saturatedFat) }
+            if sourceAvailability.hasSodium == true { availability.insert(.sodium) }
+            if sourceAvailability.hasFiber == true { availability.insert(.fiber) }
+            if sourceAvailability.hasProtein == true { availability.insert(.protein) }
+            return availability
+        }
+
         if nutrition.calories > 0 {
             availability.insert(.energy)
         }

@@ -10,23 +10,22 @@
 - Apple Developer signing is configured. A signed archive and App Store Connect `.ipa` export both succeed; the distribution profile is valid through July 16, 2027.
 - Xcode static analysis succeeds with no source-code diagnostics. Xcode emits only its harmless App Intents metadata-skipped message because Mira does not link AppIntents.
 - The Release bundle contains `PrivacyInfo.xcprivacy`, declares no tracking, and contains no provider credential.
+- The privacy, terms, support, and marketing pages are public on GitHub Pages, return HTTP 200, and their live URLs are present in the release configuration.
+- Deterministic, rights-safe App Store screenshot tests generate five verified 6.9-inch iPhone images and five verified 13-inch iPad images in accepted pixel dimensions.
+- The bounded scoring contract is versioned as `health-scoring-v1.2.0`; representative-food and nutrient-availability regression tests cover the corrected weight normalization and known-zero handling.
 
 ## Ship Blockers
 
-- Publish and verify the privacy, support, and terms pages, then add the live URLs to the bundled release configuration and regenerate the final signed archive.
+- Regenerate the signed archive and App Store Connect `.ipa` after the final scoring and presentation changes. The previously exported IPA predates `health-scoring-v1.2.0` and must not be submitted.
 - Keep release URLs in the ignored `Mira/Resources/Configuration.plist`; never place provider secrets in an App Store binary. Use a controlled backend before relying on a private USDA key at production scale.
-- Add a real privacy policy URL, support URL, and terms URL before submission.
 - Verify barcode and on-device photo-label scanning end to end on physical devices.
-- Run physical-device QA on at least one small iPhone, one standard iPhone, one large iPhone, and an iPad in portrait and landscape with the signed Release build. Simulator coverage now includes iPhone 17e, iPhone 17 Pro, and iPad mini; alternatively, explicitly scope 1.0 to iPhone before submission.
+- Run signed Release-build QA on at least one physical iPhone, including camera permission, live barcode scanning, photo-label recognition, offline fallback, and data reset. Simulator validation covers small/standard/large iPhone and iPad layouts; test a physical iPad too if one is available, or make an explicit risk acceptance for 1.0.
+- Supply the App Review contact phone number and complete the App Store Connect privacy, age-rating, export-compliance, EU trader-status, and content-rights declarations.
 
 ## High Priority
 
 - Verify the deterministic photo-result and disambiguation flows with real photos on a physical device. Xcode UI tests now pass for onboarding, simulated barcode scan to detail, denied camera permission with search fallback, photo-scan entry, single-match confirmation, multiple-match disambiguation, seeded history/detail, shopping list, clearing history, and full local-data reset.
-- Verify App Store metadata:
-  - screenshots
-  - privacy nutrition labels
-  - age rating
-  - app description and keywords
+- Upload and verify the generated screenshots and metadata in App Store Connect.
 - Complete the current App Store Connect age-rating questionnaire and EU trader-status declaration if distributing in the EU.
 - Profile launch time and first-scan latency on a real device.
 - Audit VoiceOver labels and Dynamic Type on scanner, product detail, and insights.

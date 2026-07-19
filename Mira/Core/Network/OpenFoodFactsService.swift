@@ -751,7 +751,13 @@ private extension OpenFoodFactsService {
                 nutritionalData.iron, nutritionalData.magnesium, nutritionalData.phosphorus,
                 nutritionalData.potassium, nutritionalData.zinc
             ].contains(where: { $0 != nil }),
-            hasIngredients: false
+            hasIngredients: false,
+            hasEnergy: nutriments.energy_kcal_100g != nil || nutriments.energyKcal != nil || nutriments.energy_100g != nil || nutriments.energy != nil,
+            hasSugar: nutriments.sugars_100g != nil || nutriments.sugars != nil,
+            hasSaturatedFat: nutriments.saturatedFat_100g != nil || nutriments.saturatedFat != nil,
+            hasSodium: nutriments.sodium_100g != nil || nutriments.sodium != nil || nutriments.salt_100g != nil || nutriments.salt != nil,
+            hasFiber: nutriments.fiber_100g != nil || nutriments.fiber != nil,
+            hasProtein: nutriments.proteins_100g != nil || nutriments.proteins != nil
         )
 
         return nutritionalData

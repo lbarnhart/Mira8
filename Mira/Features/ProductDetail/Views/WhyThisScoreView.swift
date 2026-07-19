@@ -66,7 +66,7 @@ struct WhyThisScoreView: View {
                         .frame(width: 80, height: 80)
                     
                     VStack(spacing: 2) {
-                        Text("\(Int(healthScore.overall))")
+                        Text("\(Int(healthScore.overall.rounded()))")
                             .font(.system(size: 28, weight: .bold, design: .rounded))
                             .foregroundColor(verdictColor)
                         

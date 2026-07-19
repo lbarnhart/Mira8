@@ -3,6 +3,8 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 developer_dir="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+export DEVELOPER_DIR="$developer_dir"
+export PATH="$developer_dir/usr/bin:$PATH"
 output_root="${1:-$repo_root/artifacts/app-store-screenshots}"
 runtime="${MIRA_SCREENSHOT_RUNTIME:-26.5}"
 temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/mira-screenshots.XXXXXX")"
@@ -26,7 +28,7 @@ capture_device() {
 
     mkdir -p "$export_path"
 
-    DEVELOPER_DIR="$developer_dir" xcodebuild test \
+    xcodebuild test \
         -project "$repo_root/Mira.xcodeproj" \
         -scheme "Mira 8" \
         -configuration Release \
@@ -38,7 +40,7 @@ capture_device() {
         -parallel-testing-enabled NO \
         -only-testing:'Mira 8UITests/MiraAppStoreScreenshotTests'
 
-    DEVELOPER_DIR="$developer_dir" xcrun xcresulttool export attachments \
+    xcrun xcresulttool export attachments \
         --path "$result_bundle" \
         --output-path "$raw_export_path"
 

@@ -79,19 +79,17 @@ Review contact:
 - Phone: `[REVIEW_CONTACT_PHONE]`
 - Email: `barnhartl91@gmail.com`
 
-## Screenshot Storyboard
+## Screenshot Set
 
-Use real Release-build screenshots with no debug data or unsupported claims.
-Because the current target supports iPad as well as iPhone, prepare the required iPad screenshot set or explicitly remove iPad from the 1.0 target before capture.
+The reproducible Release screenshot suite produces matching 6.9-inch iPhone and 13-inch iPad sets with fictitious, rights-safe product data:
 
-1. **Scan smarter at the store** — live barcode scanner.
-2. **A score you can understand** — product overview and source provenance.
-3. **See what drives the result** — score breakdown and ingredient evidence.
-4. **Personalized to your goals** — health-focus comparison or dietary preferences.
-5. **Compare choices side by side** — comparison mode.
-6. **Find a better fit** — alternatives.
-7. **Spot patterns over time** — insights or history patterns.
-8. **Plan your next shop** — shopping list.
+1. Product overview and explainable score
+2. Personalized health-focus comparison
+3. Weekly nutrition insights
+4. Scan history
+5. Shopping list
+
+Generate the final files with `scripts/capture_app_store_screenshots.sh` after the release source is frozen, then upload and verify them in App Store Connect.
 
 ## Submission Answers Requiring Owner Verification
 

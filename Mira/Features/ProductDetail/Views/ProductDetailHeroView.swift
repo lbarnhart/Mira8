@@ -129,7 +129,7 @@ struct HealthScoreCard: View {
             Spacer()
 
             // Score Number
-            Text("\(Int(score.overall))")
+            Text("\(Int(score.overall.rounded()))")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundColor(verdictColor)
         }

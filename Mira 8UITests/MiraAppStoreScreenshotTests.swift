@@ -10,22 +10,13 @@ final class MiraAppStoreScreenshotTests: XCTestCase {
 
     @MainActor
     func test01ProductOverview() throws {
-        let app = launchApp(tab: "scan", extraArguments: [
-            "-simulate-camera-available",
-            "-simulate-scanned-barcode", "900000000001"
-        ])
-
-        XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
+        let app = openSeededProductDetail()
         capture(app, name: "01-product-overview")
     }
 
     @MainActor
     func test02PersonalizedScoreComparison() throws {
-        let app = launchApp(tab: "scan", extraArguments: [
-            "-simulate-camera-available",
-            "-simulate-scanned-barcode", "900000000001"
-        ])
+        let app = openSeededProductDetail()
 
         let compareButton = app.buttons["productDetail.compareFocuses"]
         XCTAssertTrue(compareButton.waitForExistence(timeout: 10))
@@ -59,6 +50,20 @@ final class MiraAppStoreScreenshotTests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
         capture(app, name: "05-shopping-list")
+    }
+
+    @MainActor
+    private func openSeededProductDetail() -> XCUIApplication {
+        let app = launchApp(tab: "history")
+        XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 5))
+
+        let product = app.staticTexts["Harvest Oat Crunch"]
+        XCTAssertTrue(product.waitForExistence(timeout: 5))
+        product.tap()
+
+        XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
+        return app
     }
 
     @MainActor

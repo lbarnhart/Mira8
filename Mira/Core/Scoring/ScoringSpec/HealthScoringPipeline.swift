@@ -18,7 +18,7 @@ final class HealthScoringPipeline {
         self.pillarEvaluator = pillarEvaluator
         self.tierMapper = tierMapper
         self.percentileCalculator = percentileCalculator
-        self.algorithmVersion = "health-scoring-v1.1.1"
+        self.algorithmVersion = "health-scoring-v1.2.0"
         if let metadata = try? AssetLoader.thresholds().metadata {
             self.thresholdSetID = "\(metadata.id)#\(metadata.version)"
         } else {

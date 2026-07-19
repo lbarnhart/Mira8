@@ -115,10 +115,10 @@ final class ShoppingListViewModel: ObservableObject {
                     text += " (\(brand))"
                 }
 
-                text += " - Score: \(Int(item.healthScore))\n"
+                text += " - Score: \(Int(item.healthScore.rounded()))\n"
             }
 
-            text += "\nAverage Score: \(Int(stats.averageScore))"
+            text += "\nAverage Score: \(Int(stats.averageScore.rounded()))"
         }
 
         return text

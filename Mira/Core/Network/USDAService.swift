@@ -352,6 +352,11 @@ private extension USDAService {
         servingSize: Double?
     ) -> NutritionalData {
         var nutritionalData = NutritionalData()
+        let availableFallbackNutrients = Set(
+            nutrients.compactMap { nutrient in
+                nutrient.value == nil ? nil : nutrient.nutrientNumber
+            }
+        )
 
         // First, extract per-100g values from foodNutrients as fallback
         for nutrient in nutrients {
@@ -438,6 +443,7 @@ private extension USDAService {
             }
         }
 
+        let canUseFallback = labelNutrients == nil || (servingSize ?? 0) > 0
         nutritionalData.availability = DataAvailability(
             hasMacros: nutritionalData.calories > 0 || nutritionalData.protein > 0 || nutritionalData.fat > 0 || nutritionalData.carbohydrates > 0,
             hasMicronutrients: [
@@ -448,7 +454,13 @@ private extension USDAService {
                 nutritionalData.iron, nutritionalData.magnesium, nutritionalData.phosphorus,
                 nutritionalData.potassium, nutritionalData.zinc
             ].contains(where: { $0 != nil }),
-            hasIngredients: false
+            hasIngredients: false,
+            hasEnergy: labelNutrients?.calories?.value != nil || (canUseFallback && availableFallbackNutrients.contains("208")),
+            hasSugar: labelNutrients?.sugars?.value != nil || (canUseFallback && availableFallbackNutrients.contains("269")),
+            hasSaturatedFat: labelNutrients?.saturatedFat?.value != nil || (canUseFallback && availableFallbackNutrients.contains("606")),
+            hasSodium: labelNutrients?.sodium?.value != nil || (canUseFallback && availableFallbackNutrients.contains("307")),
+            hasFiber: labelNutrients?.fiber?.value != nil || (canUseFallback && availableFallbackNutrients.contains("291")),
+            hasProtein: labelNutrients?.protein?.value != nil || (canUseFallback && availableFallbackNutrients.contains("203"))
         )
 
         return nutritionalData

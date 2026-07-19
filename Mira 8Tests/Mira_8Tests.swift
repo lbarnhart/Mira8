@@ -1287,8 +1287,54 @@ struct ScoringTransparencyTests {
         #expect(!score.contributions.isEmpty)
         #expect(score.contributions.allSatisfy { $0.weight.isFinite && $0.weightedPoints.isFinite })
         let result = try #require(score.scoringResult)
-        #expect(result.algorithmVersion == "health-scoring-v1.1.1")
+        #expect(result.algorithmVersion == "health-scoring-v1.2.0")
         #expect(result.weightsProfileID.hasPrefix("weights.general_wellness"))
+    }
+
+    @Test func nutrientContributionsStayWithinTheirAllocatedWeights() {
+        let product = makeProduct(
+            calories: 900,
+            protein: 80,
+            fiber: 50,
+            sugar: 90,
+            sodium: 4,
+            ingredients: ["whole grain oats", "chia seeds"]
+        )
+        let score = ScoringEngine.shared.calculateHealthScore(
+            for: product,
+            healthFocus: .generalWellness,
+            dietaryRestrictions: []
+        )
+
+        #expect(score.contributions.allSatisfy { contribution in
+            contribution.weightedPoints >= 0
+                && contribution.weightedPoints <= contribution.weight + 0.000_001
+        })
+        #expect(score.weightedPositivePoints <= 25.000_001)
+        #expect(score.weightedNegativePoints <= 75.000_001)
+    }
+
+    @Test func representativeBalancedFoodProducesAUsefulScore() {
+        let yogurt = makeProduct(
+            calories: 87,
+            protein: 10,
+            fiber: 0,
+            sugar: 4.7,
+            sodium: 0.043,
+            category: "Dairy",
+            ingredients: ["cultured skim milk", "live active cultures"]
+        )
+        let score = ScoringEngine.shared.calculateHealthScore(
+            for: yogurt,
+            healthFocus: .generalWellness,
+            dietaryRestrictions: []
+        )
+
+        #expect(
+            score.overall >= 65 && score.overall <= 85,
+            "Expected a useful 65...85 score, got \(score.overall)"
+        )
+        #expect(score.tier == .good, "Expected good tier, got \(score.tier)")
     }
 
     @Test func healthFocusChangesTheAppliedWeightProfile() throws {
@@ -1396,7 +1442,8 @@ struct ScoringTransparencyTests {
                 sugar: sugar,
                 sodium: sodium,
                 cholesterol: 0.01,
-                servingSize: servingSize
+                servingSize: servingSize,
+                availability: .completeNutritionLabel
             ),
             ingredients: ingredients,
             additives: [],

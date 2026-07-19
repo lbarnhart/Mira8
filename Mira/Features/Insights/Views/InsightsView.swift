@@ -320,7 +320,7 @@ struct InsightsView: View {
                     .rotationEffect(.degrees(-90))
 
                 VStack(spacing: 0) {
-                    Text("\(Int(profile.overallHealth))")
+                    Text("\(Int(profile.overallHealth.rounded()))")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(scoreColor(profile.overallHealth))
@@ -475,7 +475,9 @@ struct InsightsView: View {
     }
 
     private func lastUpdatedDescription(_ date: Date) -> String {
-        RelativeDateTimeFormatter().localizedString(for: date, relativeTo: Date())
+        let now = Date()
+        guard abs(date.timeIntervalSince(now)) >= 1 else { return "Just now" }
+        return RelativeDateTimeFormatter().localizedString(for: date, relativeTo: now)
     }
 
     private func reloadInsightsForPreferences() {

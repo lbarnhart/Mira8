@@ -437,6 +437,29 @@ struct DataAvailability: Codable {
     var hasMacros: Bool = false
     var hasMicronutrients: Bool = false
     var hasIngredients: Bool = false
+    var hasEnergy: Bool? = nil
+    var hasSugar: Bool? = nil
+    var hasSaturatedFat: Bool? = nil
+    var hasSodium: Bool? = nil
+    var hasFiber: Bool? = nil
+    var hasProtein: Bool? = nil
+
+    var hasExplicitScoringFields: Bool {
+        [hasEnergy, hasSugar, hasSaturatedFat, hasSodium, hasFiber, hasProtein]
+            .contains { $0 != nil }
+    }
+
+    static let completeNutritionLabel = DataAvailability(
+        hasMacros: true,
+        hasMicronutrients: false,
+        hasIngredients: false,
+        hasEnergy: true,
+        hasSugar: true,
+        hasSaturatedFat: true,
+        hasSodium: true,
+        hasFiber: true,
+        hasProtein: true
+    )
 }
 
 // MARK: - Nutrient Availability (for scoring)

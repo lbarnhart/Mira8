@@ -203,7 +203,7 @@ private struct ShoppingListStatsCard: View {
 
                 // Average Score Badge
                 VStack(spacing: 2) {
-                    Text("\(Int(stats.averageScore))")
+                    Text("\(Int(stats.averageScore.rounded()))")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(Color.scoreColor(for: stats.averageScore))
@@ -284,7 +284,7 @@ private struct ShoppingListStatsCard: View {
         .background(Color.cardBackground)
         .cornerRadius(CornerRadius.card)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Shopping list statistics: \(stats.totalItems) items, average score \(Int(stats.averageScore)), \(Int(stats.completionPercentage))% complete")
+        .accessibilityLabel("Shopping list statistics: \(stats.totalItems) items, average score \(Int(stats.averageScore.rounded())), \(Int(stats.completionPercentage))% complete")
     }
 }
 
@@ -360,7 +360,7 @@ private struct ShoppingListItemRow: View {
                     Spacer()
 
                     // Score Badge
-                    Text("\(Int(item.healthScore))")
+                    Text("\(Int(item.healthScore.rounded()))")
                         .font(.callout)
                         .fontWeight(.bold)
                         .foregroundColor(Color.scoreColor(for: item.healthScore))
@@ -372,7 +372,7 @@ private struct ShoppingListItemRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(item.productName)\(brandDescription), score \(Int(item.healthScore))")
+            .accessibilityLabel("\(item.productName)\(brandDescription), score \(Int(item.healthScore.rounded()))")
             .accessibilityHint("Double tap to view product details")
 
             // Delete Button
