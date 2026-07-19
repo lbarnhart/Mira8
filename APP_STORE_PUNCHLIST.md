@@ -7,7 +7,8 @@
 - All 10 functional UI scenarios and all 4 launch configurations pass on iPhone 17 Pro.
 - The 10 functional UI scenarios also pass on iPhone 17e and iPad mini.
 - Release builds succeed for both the generic iOS Simulator and generic iOS device destinations.
-- Apple Developer signing is configured. A signed archive and App Store Connect `.ipa` export both succeed; the distribution profile is valid through July 16, 2027.
+- Apple Developer signing is configured. A fresh signed archive and App Store Connect `.ipa` export from scoring contract `health-scoring-v1.2.0` both succeed; the distribution profile is valid through July 16, 2027.
+- The final IPA passes strict code-signature verification, has `get-task-allow` disabled, contains the privacy manifest and public release URLs, and contains no provider credential. Its SHA-256 is `13348c08235725fa94338cca7a96d0dcf0673a793ada8ab8ee1a5a6fccde4910`.
 - Xcode static analysis succeeds with no source-code diagnostics. Xcode emits only its harmless App Intents metadata-skipped message because Mira does not link AppIntents.
 - The Release bundle contains `PrivacyInfo.xcprivacy`, declares no tracking, and contains no provider credential.
 - The privacy, terms, support, and marketing pages are public on GitHub Pages, return HTTP 200, and their live URLs are present in the release configuration.
@@ -16,11 +17,12 @@
 
 ## Ship Blockers
 
-- Regenerate the signed archive and App Store Connect `.ipa` after the final scoring and presentation changes. The previously exported IPA predates `health-scoring-v1.2.0` and must not be submitted.
 - Keep release URLs in the ignored `Mira/Resources/Configuration.plist`; never place provider secrets in an App Store binary. Use a controlled backend before relying on a private USDA key at production scale.
 - Verify barcode and on-device photo-label scanning end to end on physical devices.
 - Run signed Release-build QA on at least one physical iPhone, including camera permission, live barcode scanning, photo-label recognition, offline fallback, and data reset. Simulator validation covers small/standard/large iPhone and iPad layouts; test a physical iPad too if one is available, or make an explicit risk acceptance for 1.0.
 - Supply the App Review contact phone number and complete the App Store Connect privacy, age-rating, export-compliance, EU trader-status, and content-rights declarations.
+
+Submission field recommendations and the remaining owner-only decisions are recorded in `APP_STORE_CONNECT_SUBMISSION.md`.
 
 ## High Priority
 
