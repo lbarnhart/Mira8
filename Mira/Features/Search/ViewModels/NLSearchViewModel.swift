@@ -55,8 +55,7 @@ final class NLSearchViewModel: ObservableObject {
                 if !newQuery.isEmpty {
                     self.parseAndSearch(query: newQuery)
                 } else {
-                    self.parsedQuery = nil
-                    self.results = []
+                    self.cancelSearchAndClearResults()
                 }
             }
             .store(in: &cancellables)
@@ -79,14 +78,21 @@ final class NLSearchViewModel: ObservableObject {
 
     func searchWithSuggestion(_ suggestion: String) {
         query = suggestion
-        parseAndSearch(query: suggestion)
     }
 
     func clearSearch() {
         query = ""
+        cancelSearchAndClearResults()
+    }
+
+    private func cancelSearchAndClearResults() {
+        searchTask?.cancel()
+        searchTask = nil
         parsedQuery = nil
         results = []
         errorMessage = nil
+        isParsing = false
+        isLoading = false
     }
 
     private func parseAndSearch(query: String) {
@@ -113,10 +119,11 @@ final class NLSearchViewModel: ObservableObject {
                 // Execute search - query both USDA and OFF in parallel for best coverage
                 var usdaProducts: [APIProduct] = []
                 var offProducts: [APIProduct] = []
+                var localProducts: [APIProduct] = []
 
                 async let usdaResult: [APIProduct] = {
                     do {
-                        let results = try await usdaService.searchWithFilters(parsed.filters, limit: 30)
+                        let results = try await self.usdaService.searchWithFilters(parsed.filters, limit: 30)
                         AppLog.debug("🇺🇸 Search: USDA returned \(results.count) products", category: .network)
                         return results
                     } catch {
@@ -127,7 +134,7 @@ final class NLSearchViewModel: ObservableObject {
 
                 async let offResult: [APIProduct] = {
                     do {
-                        let results = try await openFoodFactsService.searchWithFilters(parsed.filters, limit: 30)
+                        let results = try await self.openFoodFactsService.searchWithFilters(parsed.filters, limit: 30)
                         AppLog.debug("🌍 Search: OFF returned \(results.count) products", category: .network)
                         return results
                     } catch {
@@ -136,8 +143,11 @@ final class NLSearchViewModel: ObservableObject {
                     }
                 }()
 
+                async let localResult = EssentialsDatabase.shared.search(filters: parsed.filters, limit: 20)
+
                 usdaProducts = await usdaResult
                 offProducts = await offResult
+                localProducts = await localResult
 
                 guard !Task.isCancelled else { return }
 
@@ -149,17 +159,30 @@ final class NLSearchViewModel: ObservableObject {
                 for product in offProducts {
                     let barcode = product.barcode
                     if !barcode.isEmpty {
-                        seenBarcodes.insert(barcode)
+                        seenBarcodes.insert(BarcodeNormalizer.lookupKey(for: barcode))
                     }
                     products.append(product)
+                }
+
+                // Add offline essentials that were not already supplied by OFF.
+                for product in localProducts {
+                    let barcode = product.barcode
+                    let barcodeKey = BarcodeNormalizer.lookupKey(for: barcode)
+                    if barcode.isEmpty || !seenBarcodes.contains(barcodeKey) {
+                        if !barcode.isEmpty {
+                            seenBarcodes.insert(barcodeKey)
+                        }
+                        products.append(product)
+                    }
                 }
 
                 // Add USDA products that aren't duplicates
                 for product in usdaProducts {
                     let barcode = product.barcode
-                    if barcode.isEmpty || !seenBarcodes.contains(barcode) {
+                    let barcodeKey = BarcodeNormalizer.lookupKey(for: barcode)
+                    if barcode.isEmpty || !seenBarcodes.contains(barcodeKey) {
                         if !barcode.isEmpty {
-                            seenBarcodes.insert(barcode)
+                            seenBarcodes.insert(barcodeKey)
                         }
                         products.append(product)
                     }
@@ -278,7 +301,9 @@ final class NLSearchViewModel: ObservableObject {
     // MARK: - Recent Searches
 
     private func loadRecentSearches() {
-        recentSearches = UserDefaults.standard.stringArray(forKey: "recentSearches") ?? []
+        recentSearches = UserDefaults.standard.stringArray(
+            forKey: Constants.UserDefaults.recentSearches
+        ) ?? []
     }
 
     private func addToRecentSearches(_ query: String) {
@@ -294,17 +319,17 @@ final class NLSearchViewModel: ObservableObject {
             recentSearches = Array(recentSearches.prefix(10))
         }
 
-        UserDefaults.standard.set(recentSearches, forKey: "recentSearches")
+        UserDefaults.standard.set(recentSearches, forKey: Constants.UserDefaults.recentSearches)
     }
 
     func removeRecentSearch(_ query: String) {
         recentSearches.removeAll { $0 == query }
-        UserDefaults.standard.set(recentSearches, forKey: "recentSearches")
+        UserDefaults.standard.set(recentSearches, forKey: Constants.UserDefaults.recentSearches)
     }
 
     func clearRecentSearches() {
         recentSearches = []
-        UserDefaults.standard.removeObject(forKey: "recentSearches")
+        UserDefaults.standard.removeObject(forKey: Constants.UserDefaults.recentSearches)
     }
 
     // MARK: - Filter Adjustments
@@ -331,7 +356,7 @@ final class NLSearchViewModel: ObservableObject {
 
             async let usdaResult: [APIProduct] = {
                 do {
-                    return try await usdaService.searchWithFilters(newFilters, limit: 30)
+                    return try await self.usdaService.searchWithFilters(newFilters, limit: 30)
                 } catch {
                     AppLog.warning("🇺🇸 Filter update: USDA search failed", category: .network)
                     return []
@@ -340,7 +365,7 @@ final class NLSearchViewModel: ObservableObject {
 
             async let offResult: [APIProduct] = {
                 do {
-                    return try await openFoodFactsService.searchWithFilters(newFilters, limit: 30)
+                    return try await self.openFoodFactsService.searchWithFilters(newFilters, limit: 30)
                 } catch {
                     AppLog.warning("🌍 Filter update: OFF search failed", category: .network)
                     return []

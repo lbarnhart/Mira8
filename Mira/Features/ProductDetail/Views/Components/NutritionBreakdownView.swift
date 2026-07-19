@@ -26,7 +26,7 @@ struct NutritionBreakdownView: View {
                 NutritionRow(name: "Fat", value: nutrition.fat, unit: "g")
                 NutritionRow(name: "Fiber", value: nutrition.fiber, unit: "g")
                 NutritionRow(name: "Sugar", value: nutrition.sugar, unit: "g")
-                NutritionRow(name: "Sodium", value: nutrition.sodium, unit: "g")
+                NutritionRow(name: "Sodium", value: nutrition.sodiumMilligrams, unit: "mg")
                 NutritionRow(name: "Cholesterol", value: nutrition.cholesterol * 1000, unit: "mg", precision: 0)
             }
         }

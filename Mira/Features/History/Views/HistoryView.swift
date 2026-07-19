@@ -81,7 +81,6 @@ struct HistoryView: View {
                     }
                 )
             }
-            .accessibilityIdentifier("screen.history")
         }
     }
 

@@ -45,7 +45,6 @@ struct OnboardingView: View {
         } message: {
             Text(viewModel.errorMessage ?? "We couldn't save your preferences. Please try again.")
         }
-        .accessibilityIdentifier("screen.onboarding")
     }
 
     private var header: some View {

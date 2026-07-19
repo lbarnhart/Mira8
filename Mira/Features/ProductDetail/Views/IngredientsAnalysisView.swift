@@ -374,6 +374,8 @@ private struct IngredientCategoryList: View {
 }
 
 private struct MissingIngredientsInfo: View {
+    private let contributionURL = URL(string: "https://world.openfoodfacts.org/contribute")
+
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Text("Ingredient information not available")
@@ -384,9 +386,11 @@ private struct MissingIngredientsInfo: View {
                 .font(.caption)
                 .foregroundColor(.textSecondary)
 
-            Link("Help improve this data", destination: URL(string: "https://world.openfoodfacts.org/contribute")!)
-                .font(.caption.bold())
-                .foregroundColor(.primaryBlue)
+            if let contributionURL {
+                Link("Help improve this data", destination: contributionURL)
+                    .font(.caption.bold())
+                    .foregroundColor(.primaryBlue)
+            }
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -402,6 +406,7 @@ private struct IngredientDetailSheet: View {
     let ingredient: IngredientItem
     @Environment(\.dismiss) private var dismiss
     @State private var showAIAnalysis = false
+    @State private var isAIAnalysisAvailable = false
 
     var body: some View {
         NavigationStack {
@@ -427,23 +432,24 @@ private struct IngredientDetailSheet: View {
                         }
                     }
 
-                    // AI Analysis Button
-                    Button {
-                        showAIAnalysis = true
-                    } label: {
-                        HStack(spacing: Spacing.sm) {
-                            Image(systemName: "sparkles")
-                            Text("Get AI Analysis")
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.textTertiary)
+                    if isAIAnalysisAvailable {
+                        Button {
+                            showAIAnalysis = true
+                        } label: {
+                            HStack(spacing: Spacing.sm) {
+                                Image(systemName: "sparkles")
+                                Text("Get AI Analysis")
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundColor(.textTertiary)
+                            }
+                            .font(.body.weight(.medium))
+                            .foregroundColor(.primaryBlue)
+                            .padding()
+                            .background(Color.primaryBlue.opacity(0.1))
+                            .cornerRadius(CornerRadius.md)
                         }
-                        .font(.body.weight(.medium))
-                        .foregroundColor(.primaryBlue)
-                        .padding()
-                        .background(Color.primaryBlue.opacity(0.1))
-                        .cornerRadius(CornerRadius.md)
                     }
 
                     if !ingredient.explanation.isEmpty {
@@ -462,6 +468,13 @@ private struct IngredientDetailSheet: View {
 
                     infoBox(title: "Typical use", text: ingredient.typicalUse)
                     infoBox(title: "Health impact", text: ingredient.healthImpact)
+
+                    Label(
+                        "Ingredient notes are general guidance, not a medical or safety determination.",
+                        systemImage: "info.circle"
+                    )
+                    .font(.caption)
+                    .foregroundColor(.textTertiary)
                 }
                 .padding(Spacing.lg)
             }
@@ -474,6 +487,9 @@ private struct IngredientDetailSheet: View {
             }
             .sheet(isPresented: $showAIAnalysis) {
                 IngredientAIAnalysisSheet(ingredientName: ingredient.displayName)
+            }
+            .task {
+                isAIAnalysisAvailable = await IngredientAIService.shared.isAvailable
             }
         }
     }

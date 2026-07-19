@@ -47,7 +47,6 @@ struct InsightsView: View {
             .onChange(of: appState.dietaryRestrictions) { _ in
                 reloadInsightsForPreferences()
             }
-            .accessibilityIdentifier("screen.insights")
         }
     }
 

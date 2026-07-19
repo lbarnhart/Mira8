@@ -1,7 +1,7 @@
 import Foundation
 
 /// Result of product identification from image analysis.
-struct ProductIdentification: Identifiable, Equatable {
+struct ProductIdentification: Identifiable, Equatable, Sendable {
     let id = UUID()
     let name: String
     let brand: String?
@@ -38,7 +38,7 @@ struct ProductIdentification: Identifiable, Equatable {
 }
 
 /// Product match from Open Food Facts search
-struct ProductMatch: Identifiable, Equatable {
+struct ProductMatch: Identifiable, Equatable, Sendable {
     let id: String
     let barcode: String
     let name: String

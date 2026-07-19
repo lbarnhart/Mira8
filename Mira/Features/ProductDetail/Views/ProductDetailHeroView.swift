@@ -215,7 +215,7 @@ struct SecondaryStatsRow: View {
     var body: some View {
         HStack(spacing: Spacing.xl) {
             SecondaryStatItem(label: "Sugar", value: "\(Int(nutrition.sugar))g")
-            SecondaryStatItem(label: "Sodium", value: "\(Int(nutrition.sodium * 1000))mg")
+            SecondaryStatItem(label: "Sodium", value: "\(Int(nutrition.sodiumMilligrams))mg")
             SecondaryStatItem(label: "Ingredients", value: "\(max(ingredientCount, 1))")
         }
         .padding(.vertical, Spacing.sm)

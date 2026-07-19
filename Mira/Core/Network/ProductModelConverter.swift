@@ -6,21 +6,10 @@ enum ProductModelConverter {
 
     /// Convert an APIProduct to a ProductModel
     static func convert(_ api: APIProduct) -> ProductModel {
-        // Use servingSizeDisplay if available (e.g., "2 tbsp (30 g)"), else fall back to "100g"
-        let servingDisplay = api.servingSizeDisplay ?? "100g"
-        let servingMultiplier = (api.servingSizeInGrams ?? 100) / 100
-        let adjustedNutritionData = api.nutritionalData.scaled(by: servingMultiplier)
-
+        let adjustedNutritionData = api.nutritionalDataForDisplayedServing
         let nutrition = ProductNutrition(
-            calories: adjustedNutritionData.calories,
-            protein: adjustedNutritionData.protein,
-            carbohydrates: adjustedNutritionData.carbohydrates,
-            fat: adjustedNutritionData.fat,
-            fiber: adjustedNutritionData.fiber,
-            sugar: adjustedNutritionData.sugar,
-            sodium: adjustedNutritionData.sodium,
-            cholesterol: adjustedNutritionData.cholesterol,
-            servingSize: servingDisplay
+            from: adjustedNutritionData,
+            servingSize: api.servingSizeLabelForDisplay
         )
 
         let normalizedIngredients: [String]
@@ -50,7 +39,8 @@ enum ProductModelConverter {
             createdAt: Date(),
             updatedAt: Date(),
             isCached: false,
-            rawIngredientsText: api.rawIngredientsText
+            rawIngredientsText: api.rawIngredientsText,
+            dataSource: api.source
         )
     }
 

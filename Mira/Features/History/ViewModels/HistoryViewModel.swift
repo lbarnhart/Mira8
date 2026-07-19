@@ -50,12 +50,7 @@ final class HistoryViewModel: ObservableObject {
 
                             // Recompute score for verification in logs
                             let focus = HealthFocus(fromStored: currentHealthFocus)
-                            let model = makeProductModel(from: product)
-                            let score = ScoringEngine.shared.calculateHealthScore(
-                                for: model,
-                                healthFocus: focus,
-                                dietaryRestrictions: []
-                            )
+                            let score = product.calculateScore(for: focus.rawValue)
                             dprint("📊 History - Health Focus Used: \(focus.rawValue)")
                             dprint("📊 History - Calculated Score: \(Int(score.overall.rounded()))")
                             dprint("📊 History - Score Breakdown:")
@@ -164,49 +159,6 @@ final class HistoryViewModel: ObservableObject {
         }
         dprint("=== END DEBUG ===")
 }
-
-// Helpers to bridge CoreData product into scoring model for logging
-    private func makeProductModel(from product: Product) -> ProductModel {
-        let nutrition = ProductNutrition(
-            calories: product.nutritionalData.calories,
-            protein: product.nutritionalData.protein,
-            carbohydrates: product.nutritionalData.carbohydrates,
-            fat: product.nutritionalData.fat,
-            fiber: product.nutritionalData.fiber,
-            sugar: product.nutritionalData.sugar,
-            sodium: product.nutritionalData.sodium,
-            cholesterol: product.nutritionalData.cholesterol,
-            servingSize: "100g"
-        )
-
-        let uuid = UUID(uuidString: product.id) ?? UUID()
-        let ingredientsArray: [String] = product.ingredients?
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            ?? []
-
-        return ProductModel(
-            id: uuid,
-            name: product.name,
-            brand: product.brand,
-            category: product.category,
-            categorySlug: nil,
-            barcode: product.barcode,
-            nutrition: nutrition,
-            ingredients: ingredientsArray,
-            additives: [],
-            processingLevel: .processed,
-            dietaryFlags: [],
-            imageURL: product.imageURL,
-            thumbnailURL: product.thumbnailURL,
-            healthScore: 0,
-            createdAt: product.lastScanned ?? Date(),
-            updatedAt: product.lastScanned ?? Date(),
-            isCached: true,
-            rawIngredientsText: product.ingredients
-        )
-    }
-
 
     // DEBUG-only logging helper using AppLog
     private func dprint(_ message: @autoclosure () -> String) {

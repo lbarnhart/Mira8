@@ -30,6 +30,11 @@ struct Constants {
         static let shoppingListItems = "shopping_list_items"
         static let hasSeenFirstScanEducation = "hasSeenFirstScanEducation"
         static let hasSeenBalanceBanner = "hasSeenBalanceBanner"
+        static let hasSeenInsightsUnlocked = "hasSeenInsightsUnlocked"
+        static let recentSearches = "recentSearches"
+        static let appColorScheme = "appColorScheme"
+        static let appTextSize = "appTextSize"
+        static let scanAnalytics = "scanAnalytics"
     }
 
     struct CoreData {

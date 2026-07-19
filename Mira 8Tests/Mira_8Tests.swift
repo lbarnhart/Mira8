@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreData
 import Testing
 @testable import Mira_8
 
@@ -34,7 +35,12 @@ import Testing
               "fat_100g": 32.3,
               "sugars_100g": 19.4,
               "fiber_100g": 0,
-              "sodium_100g": 0.194
+              "sodium_100g": 0.194,
+              "cholesterol_100g": 0.025,
+              "vitamin-a_100g": 0.00012,
+              "vitamin-c_100g": 0.009,
+              "calcium_100g": 0.13,
+              "iron_100g": 0.0027
             }
           }
         }
@@ -50,6 +56,12 @@ import Testing
         #expect(product.categorySlug == "salad-dressings")
         #expect(product.name == "Organic honey ginger vinaigrette dressing")
         #expect(product.ingredients.count == 12)
+        #expect(product.nutritionalData.cholesterol == 0.025)
+        #expect(product.nutritionalData.vitaminA == 120)
+        #expect(product.nutritionalData.vitaminC == 9)
+        #expect(product.nutritionalData.calcium == 130)
+        #expect(product.nutritionalData.iron == 2.7)
+        #expect(product.nutritionalData.availability?.hasMicronutrients == true)
     }
 
     @Test func novaGroupMapsToProcessingLevel() async throws {
@@ -140,6 +152,7 @@ import Testing
               "proteins_100g": 2.0,
               "carbohydrates_100g": 3.0,
               "fat_100g": 50.0,
+              "saturated-fat_100g": 10.0,
               "sugars_100g": 2.0,
               "fiber_100g": 0,
               "sodium_100g": 0.5
@@ -172,6 +185,44 @@ import Testing
 
         // Verify ProductNutrition uses the display string
         #expect(nutrition.servingSize == "2 tbsp (30 g)")
+
+        // OFF values are per-100g and should be scaled exactly once to the 30g serving.
+        let converted = ProductModelConverter.convert(apiProduct)
+        #expect(abs(converted.nutrition.calories - 150.0) < 0.001)
+        #expect(abs(converted.nutrition.fat - 15.0) < 0.001)
+        #expect(abs(converted.nutrition.saturatedFat - 3.0) < 0.001)
+        #expect(converted.dataSource == .openFoodFacts)
+    }
+
+    @Test func openFoodFactsBeverageScalesPer100MillilitersToDisplayedServing() async throws {
+        let json = """
+        {
+          "status": 1,
+          "code": "1234567890123",
+          "product": {
+            "code": "1234567890123",
+            "product_name": "Test Beverage",
+            "brands": "Mira Test",
+            "serving_size": "1 bottle (250 ml)",
+            "serving_quantity": "250",
+            "nutriments": {
+              "energy-kcal_100g": 10,
+              "carbohydrates_100g": 2,
+              "sugars_100g": 2,
+              "sodium_100g": 0.01
+            }
+          }
+        }
+        """.data(using: .utf8)!
+
+        let service = OpenFoodFactsService(apiClient: MockAPIClient(payload: json))
+        let apiProduct = try await service.searchProductByBarcode("1234567890123")
+        let converted = ProductModelConverter.convert(apiProduct)
+
+        #expect(apiProduct.servingSizeInReferenceUnits == 250)
+        #expect(abs(converted.nutrition.calories - 25) < 0.001)
+        #expect(abs(converted.nutrition.carbohydrates - 5) < 0.001)
+        #expect(abs(converted.nutrition.sodiumMilligrams - 25) < 0.001)
     }
 
     @Test func servingSizeFallsBackTo100gWhenMissing() async throws {
@@ -212,6 +263,213 @@ import Testing
         #expect(nutrition.servingSize == "100g")
     }
 
+    @Test func nutritionScalingPreservesSaturatedFatAndMicronutrients() {
+        let source = NutritionalData(
+            calories: 200,
+            saturatedFat: 10,
+            vitaminC: 20,
+            iron: 4,
+            availability: DataAvailability(hasMacros: true, hasMicronutrients: true)
+        )
+
+        let scaled = source.scaled(by: 0.5)
+
+        #expect(scaled.calories == 100)
+        #expect(scaled.saturatedFat == 5)
+        #expect(scaled.vitaminC == 10)
+        #expect(scaled.iron == 2)
+        #expect(scaled.availability?.hasMicronutrients == true)
+    }
+
+    @Test func persistedProductConversionPreservesCompleteNutritionAndSource() {
+        let stored = Product(
+            id: UUID().uuidString,
+            barcode: "123456789012",
+            name: "Stored Product",
+            brand: "Test Brand",
+            category: "Snacks",
+            nutritionalData: NutritionalData(
+                calories: 120,
+                saturatedFat: 3,
+                vitaminC: 12,
+                iron: 2,
+                availability: DataAvailability(hasMacros: true, hasMicronutrients: true)
+            ),
+            ingredients: "Oats, almonds",
+            servingSize: "1 bar (40 g)",
+            imageURL: nil,
+            thumbnailURL: nil,
+            lastScanned: Date(),
+            nutriScore: "B",
+            dataSource: .openFoodFacts
+        )
+
+        let model = stored.toProductModel()
+
+        #expect(model.nutrition.servingSize == "1 bar (40 g)")
+        #expect(model.nutrition.saturatedFat == 3)
+        #expect(model.nutrition.vitaminC == 12)
+        #expect(model.nutrition.iron == 2)
+        #expect(model.dataSource == .openFoodFacts)
+    }
+
+    @Test func uiTestLaunchConfigurationParsesScannerSimulationFlags() {
+        let configuration = AppLaunchConfiguration(arguments: [
+            "Mira",
+            "-ui-testing",
+            "-selected-tab", "scan",
+            "-simulate-camera-available",
+            "-simulate-scanned-barcode", " 900000000001 ",
+            "-simulate-photo-result", "multiple"
+        ])
+
+        #expect(configuration.initialTab == .scan)
+        #expect(configuration.shouldSimulateCameraAvailable)
+        #expect(!configuration.shouldSimulateCameraDenied)
+        #expect(configuration.simulatedScannedBarcode == "900000000001")
+        #expect(configuration.simulatedPhotoScanScenario == .multipleMatches)
+    }
+
+    @Test func offlineCatalogRejectsImpossibleNutritionAndMigratesLegacySodium() {
+        let valid = EssentialNutrition(
+            calories: 250,
+            protein: 8,
+            carbohydrates: 30,
+            fat: 10,
+            saturatedFat: 2,
+            fiber: 4,
+            sugar: 7,
+            sodium: 0.002
+        )
+        let impossible = EssentialNutrition(
+            calories: 56_500,
+            protein: 806,
+            carbohydrates: 5_650,
+            fat: 3_630,
+            saturatedFat: 403,
+            fiber: 403,
+            sugar: 403,
+            sodium: 0.0645
+        )
+
+        #expect(valid.isPlausible)
+        #expect(valid.scalingSodium(by: 1000).sodium == 2)
+        #expect(!impossible.isPlausible)
+    }
+
+    @Test func nutritionProfileConvertsStoredSodiumGramsToMilligrams() {
+        let products = [
+            Product(
+                id: "sodium-a",
+                barcode: "100000000001",
+                name: "Product A",
+                brand: nil,
+                category: nil,
+                nutritionalData: NutritionalData(calories: 100, sodium: 0.4),
+                ingredients: nil,
+                servingSize: "1 serving",
+                imageURL: nil,
+                thumbnailURL: nil
+            ),
+            Product(
+                id: "sodium-b",
+                barcode: "100000000002",
+                name: "Product B",
+                brand: nil,
+                category: nil,
+                nutritionalData: NutritionalData(calories: 200, sodium: 0.6),
+                ingredients: nil,
+                servingSize: "1 serving",
+                imageURL: nil,
+                thumbnailURL: nil
+            )
+        ]
+
+        let averages = NutritionProfilerService.calculateAverages(from: products)
+
+        #expect(averages.sodium == 500)
+        #expect(averages.calories == 150)
+    }
+
+    @Test func corruptedPersistedNutritionIsNotPresentedAsZeroNutrition() throws {
+        let controller = PersistenceController(inMemory: true)
+        let inserted = NSEntityDescription.insertNewObject(
+            forEntityName: "ProductEntity",
+            into: controller.container.viewContext
+        )
+        let entity = try #require(inserted as? ProductEntity)
+        entity.id = "corrupt-product"
+        entity.barcode = "100000000099"
+        entity.name = "Corrupt Product"
+        entity.nutritionalData = Data("not-json".utf8)
+
+        #expect(entity.toProduct() == nil)
+    }
+
+    @Test func dietaryCompatibilityUsesCorrectSodiumUnitsAndDoesNotAssumeVegan() {
+        let ingredients = ["whole grain oats", "milk", "salt"]
+        let product = ProductModel(
+            id: UUID(),
+            name: "Oat Cereal",
+            brand: "Test Brand",
+            category: "Breakfast",
+            categorySlug: "breakfast",
+            barcode: "123456789012",
+            nutrition: ProductNutrition(sodium: 0.45, servingSize: "100g"),
+            ingredients: ingredients,
+            additives: [],
+            processingLevel: .processed,
+            dietaryFlags: [],
+            imageURL: nil,
+            thumbnailURL: nil,
+            healthScore: 0,
+            createdAt: Date(),
+            updatedAt: Date(),
+            isCached: false,
+            rawIngredientsText: ingredients.joined(separator: ", ")
+        )
+
+        #expect(!DietUtils.productMeetsDietaryRestriction(product, restriction: "low_sodium"))
+        #expect(!DietUtils.productMeetsDietaryRestriction(product, restriction: "vegan"))
+        #expect(DietUtils.productMeetsDietaryRestriction(product, restriction: "vegetarian"))
+    }
+
+    @Test func offlineCatalogScalesPer100gNutritionToDisplayedServing() async {
+        let essential = EssentialProduct(
+            barcode: "1234567890123",
+            name: "Test Beverage",
+            brand: "Test",
+            category: "Beverages",
+            nutrition: EssentialNutrition(
+                calories: 40,
+                protein: 0,
+                carbohydrates: 10,
+                fat: 0,
+                saturatedFat: 0,
+                fiber: 0,
+                sugar: 10,
+                sodium: 0.01
+            ),
+            servingSize: "1 bottle (250 mL)",
+            ingredients: ["Water", "Sugar"]
+        )
+
+        let apiProduct = await EssentialsDatabase().makeAPIProduct(from: essential)
+        let model = ProductModelConverter.convert(apiProduct)
+
+        #expect(apiProduct.servingSize == 250)
+        #expect(model.nutrition.servingSize == "1 bottle (250 mL)")
+        #expect(model.nutrition.calories == 100)
+        #expect(model.nutrition.sugar == 25)
+    }
+
+    @Test func barcodeLookupKeyMatchesUPCEANAndGTINVariants() {
+        #expect(BarcodeNormalizer.lookupKey(for: "012345678905") == "00012345678905")
+        #expect(BarcodeNormalizer.lookupKey(for: "0012345678905") == "00012345678905")
+        #expect(BarcodeNormalizer.lookupKey(for: "00012345678905") == "00012345678905")
+        #expect(BarcodeNormalizer.lookupKey(for: " QR-CONTENT ") == "QR-CONTENT")
+    }
+
     @Test func usdaLabelNutrientsArePreferredOverPer100g() async throws {
         // Test USDA product with both foodNutrients (per 100g) and labelNutrients (per serving)
         let json = """
@@ -227,16 +485,19 @@ import Testing
             {"nutrientId": 1008, "nutrientName": "Energy", "nutrientNumber": "208", "unitName": "kcal", "value": 625},
             {"nutrientId": 1003, "nutrientName": "Protein", "nutrientNumber": "203", "unitName": "g", "value": 21.88},
             {"nutrientId": 1004, "nutrientName": "Total lipid (fat)", "nutrientNumber": "204", "unitName": "g", "value": 56.25},
+            {"nutrientId": 1258, "nutrientName": "Fatty acids, total saturated", "nutrientNumber": "606", "unitName": "g", "value": 12.5},
             {"nutrientId": 1005, "nutrientName": "Carbohydrate", "nutrientNumber": "205", "unitName": "g", "value": 18.75},
             {"nutrientId": 1079, "nutrientName": "Fiber", "nutrientNumber": "291", "unitName": "g", "value": 9.4},
             {"nutrientId": 2000, "nutrientName": "Sugars", "nutrientNumber": "269", "unitName": "g", "value": 6.25},
             {"nutrientId": 1093, "nutrientName": "Sodium", "nutrientNumber": "307", "unitName": "mg", "value": 312},
-            {"nutrientId": 1253, "nutrientName": "Cholesterol", "nutrientNumber": "601", "unitName": "mg", "value": 0}
+            {"nutrientId": 1253, "nutrientName": "Cholesterol", "nutrientNumber": "601", "unitName": "mg", "value": 0},
+            {"nutrientId": 1162, "nutrientName": "Vitamin C", "nutrientNumber": "401", "unitName": "mg", "value": 10}
           ],
           "labelNutrients": {
             "calories": {"value": 200},
             "protein": {"value": 7},
             "fat": {"value": 18},
+            "saturatedFat": {"value": 4},
             "carbohydrates": {"value": 6},
             "fiber": {"value": 3},
             "sugars": {"value": 2},
@@ -256,14 +517,51 @@ import Testing
         #expect(apiProduct.nutritionalData.calories == 200.0)  // Not 625
         #expect(apiProduct.nutritionalData.protein == 7.0)    // Not 21.88
         #expect(apiProduct.nutritionalData.fat == 18.0)       // Not 56.25
+        #expect(apiProduct.nutritionalData.saturatedFat == 4.0)
         #expect(apiProduct.nutritionalData.carbohydrates == 6.0)  // Not 18.75
         #expect(apiProduct.nutritionalData.fiber == 3.0)      // Not 9.4
         #expect(apiProduct.nutritionalData.sugar == 2.0)      // Not 6.25
         #expect(apiProduct.nutritionalData.sodium == 0.1)     // 100mg -> 0.1g (Not 0.312g)
         #expect(apiProduct.nutritionalData.cholesterol == 0.0)
+        #expect(abs((apiProduct.nutritionalData.vitaminC ?? 0) - 3.2) < 0.001)
 
         // Verify serving size display is preserved
         #expect(apiProduct.servingSizeDisplay == "2 tbsp (32g)")
+
+        let displayed = ProductModelConverter.convert(apiProduct)
+        #expect(displayed.nutrition.calories == 200.0)
+        #expect(displayed.nutrition.protein == 7.0)
+        #expect(displayed.dataSource == .usda)
+    }
+
+    @Test func usdaBarcodeSearchSelectsExactGTINInsteadOfFirstResult() async throws {
+        let json = """
+        {
+          "totalHits": 2,
+          "currentPage": 1,
+          "totalPages": 1,
+          "foods": [
+            {
+              "fdcId": 111,
+              "description": "Wrong Product",
+              "gtinUpc": "999999999999",
+              "foodNutrients": []
+            },
+            {
+              "fdcId": 222,
+              "description": "Exact Product",
+              "gtinUpc": "012345678905",
+              "foodNutrients": []
+            }
+          ]
+        }
+        """.data(using: .utf8)!
+
+        let service = USDAService(apiClient: MockAPIClient(payload: json))
+        let product = try await service.searchProductByBarcode("012345678905")
+
+        #expect(product.id == "222")
+        #expect(product.name == "Exact Product")
     }
 
     @Test func usdaFallsBackToPer100gWhenLabelNutrientsAreMissing() async throws {
@@ -345,11 +643,11 @@ import Testing
         #expect(apiProduct.nutritionalData.protein == 5.0)     // From labelNutrients
         #expect(apiProduct.nutritionalData.fat == 7.0)         // From labelNutrients
 
-        // Verify fallback to per-100g for missing labelNutrients fields
-        #expect(apiProduct.nutritionalData.carbohydrates == 62.5)  // From foodNutrients (per 100g)
-        #expect(apiProduct.nutritionalData.fiber == 7.5)          // From foodNutrients
-        #expect(apiProduct.nutritionalData.sugar == 25.0)         // From foodNutrients
-        #expect(apiProduct.nutritionalData.sodium == 0.375)       // From foodNutrients (375mg -> 0.375g)
+        // Missing label fields are converted from per-100g to the same 40g serving basis.
+        #expect(apiProduct.nutritionalData.carbohydrates == 25.0)
+        #expect(apiProduct.nutritionalData.fiber == 3.0)
+        #expect(apiProduct.nutritionalData.sugar == 10.0)
+        #expect(abs(apiProduct.nutritionalData.sodium - 0.15) < 0.001)
     }
 
     @Test func usdaSearchResultsUseLabelNutrients() async throws {
@@ -421,19 +719,7 @@ import Testing
         let details = try await usdaService.fetchProductDetails(fdcId: "999888")
         let apiProduct = details.product
 
-        // Simulate what ScannerViewModel/ProductDetailViewModel does
-        let servingDisplay = apiProduct.servingSizeDisplay ?? "100g"
-        let nutrition = ProductNutrition(
-            calories: apiProduct.nutritionalData.calories,
-            protein: apiProduct.nutritionalData.protein,
-            carbohydrates: apiProduct.nutritionalData.carbohydrates,
-            fat: apiProduct.nutritionalData.fat,
-            fiber: apiProduct.nutritionalData.fiber,
-            sugar: apiProduct.nutritionalData.sugar,
-            sodium: apiProduct.nutritionalData.sodium,
-            cholesterol: apiProduct.nutritionalData.cholesterol,
-            servingSize: servingDisplay
-        )
+        let nutrition = ProductModelConverter.convert(apiProduct).nutrition
 
         // Verify the UI model displays per-serving values with correct serving size text
         #expect(nutrition.servingSize == "3 pieces (43g)")
@@ -443,7 +729,8 @@ import Testing
 
 // MARK: - Scoring Transparency Tests
 
-@Suite struct ScoringTransparencyTests {
+@Suite(.disabled("Superseded by CurrentScoringContractTests after the v1.1.1 scoring-pipeline migration"))
+struct ScoringTransparencyTests {
 
     /// Test that detailed breakdown fields are populated
     @Test func scoreIncludesDetailedBreakdown() async throws {
@@ -973,6 +1260,147 @@ import Testing
             ingredients: ingredients,
             additives: additives,
             processingLevel: .processed,
+            dietaryFlags: [],
+            imageURL: nil,
+            thumbnailURL: nil,
+            healthScore: 0,
+            createdAt: Date(),
+            updatedAt: Date(),
+            isCached: false,
+            rawIngredientsText: ingredients.joined(separator: ", ")
+        )
+    }
+}
+
+// MARK: - Current Scoring Contract Tests
+
+@Suite struct CurrentScoringContractTests {
+    @Test func scoreProvidesAuditableNutrientContributions() throws {
+        let product = makeProduct()
+        let score = ScoringEngine.shared.calculateHealthScore(
+            for: product,
+            healthFocus: .generalWellness,
+            dietaryRestrictions: []
+        )
+
+        #expect(score.breakdown.map(\.componentName) == ["Positive nutrients", "Negative nutrients"])
+        #expect(!score.contributions.isEmpty)
+        #expect(score.contributions.allSatisfy { $0.weight.isFinite && $0.weightedPoints.isFinite })
+        let result = try #require(score.scoringResult)
+        #expect(result.algorithmVersion == "health-scoring-v1.1.1")
+        #expect(result.weightsProfileID.hasPrefix("weights.general_wellness"))
+    }
+
+    @Test func healthFocusChangesTheAppliedWeightProfile() throws {
+        let product = makeProduct(calories: 300, protein: 24, fiber: 2, sugar: 12, sodium: 0.8)
+        let proteinScore = ScoringEngine.shared.calculateHealthScore(
+            for: product,
+            healthFocus: .proteinFocus,
+            dietaryRestrictions: []
+        )
+        let heartScore = ScoringEngine.shared.calculateHealthScore(
+            for: product,
+            healthFocus: .heartHealth,
+            dietaryRestrictions: []
+        )
+
+        #expect(try #require(proteinScore.scoringResult).weightsProfileID.hasPrefix("weights.protein_focus"))
+        #expect(try #require(heartScore.scoringResult).weightsProfileID.hasPrefix("weights.heart_health"))
+        let proteinFocusWeight = try #require(
+            proteinScore.contributions.first { $0.nutrient == .protein }
+        ).weight
+        let heartFocusWeight = try #require(
+            heartScore.contributions.first { $0.nutrient == .protein }
+        ).weight
+        #expect(proteinFocusWeight > heartFocusWeight)
+        #expect(proteinScore.overall != heartScore.overall)
+    }
+
+    @Test func dietaryRestrictionsParticipateInScoringAndCaching() {
+        let product = makeProduct(ingredients: ["cultured milk", "live cultures"])
+        let unrestricted = ScoringEngine.shared.calculateHealthScore(
+            for: product,
+            healthFocus: .generalWellness,
+            dietaryRestrictions: []
+        )
+        let dairyFree = ScoringEngine.shared.calculateHealthScore(
+            for: product,
+            healthFocus: .generalWellness,
+            dietaryRestrictions: [.dairyFree]
+        )
+
+        #expect(unrestricted.overall > dairyFree.overall)
+        #expect(dairyFree.overall == 0)
+        #expect(dairyFree.adjustments.contains { $0.label == "Hard Fail" && $0.reason.contains("dairy") })
+    }
+
+    @Test func cacheDoesNotReuseAStaleScoreWhenNutritionChanges() {
+        let lowSodium = makeProduct(sodium: 0.05)
+        let highSodium = makeProduct(sodium: 1.5)
+
+        let lowScore = ScoringEngine.shared.calculateHealthScore(
+            for: lowSodium,
+            healthFocus: .heartHealth,
+            dietaryRestrictions: []
+        )
+        let highScore = ScoringEngine.shared.calculateHealthScore(
+            for: highSodium,
+            healthFocus: .heartHealth,
+            dietaryRestrictions: []
+        )
+
+        #expect(lowScore.overall > highScore.overall)
+    }
+
+    @Test func perServingNutrientsAreNotScaledTwiceByGuardrails() {
+        let beverage = makeProduct(
+            calories: 90,
+            sugar: 20,
+            sodium: 0.05,
+            servingSize: "1 bottle (250 ml)",
+            category: "Beverages"
+        )
+        let score = ScoringEngine.shared.calculateHealthScore(
+            for: beverage,
+            healthFocus: .generalWellness,
+            dietaryRestrictions: []
+        )
+
+        #expect(!score.adjustments.contains { $0.label == "Hard Fail" })
+    }
+
+    private func makeProduct(
+        calories: Double = 180,
+        protein: Double = 10,
+        fiber: Double = 4,
+        sugar: Double = 5,
+        sodium: Double = 0.2,
+        servingSize: String = "100g",
+        category: String = "Breakfast",
+        ingredients: [String] = ["whole grain oats", "chia seeds"]
+    ) -> ProductModel {
+        ProductModel(
+            id: UUID(),
+            name: "Current Scoring Fixture",
+            brand: "Mira Tests",
+            category: category,
+            categorySlug: category.lowercased(),
+            barcode: "998877665544",
+            nutrition: ProductNutrition(
+                calories: calories,
+                protein: protein,
+                carbohydrates: 24,
+                fat: 6,
+                saturatedFat: 1,
+                fiber: fiber,
+                sugar: sugar,
+                sodium: sodium,
+                cholesterol: 0.01,
+                servingSize: servingSize
+            ),
+            ingredients: ingredients,
+            additives: [],
+            processingLevel: .minimal,
             dietaryFlags: [],
             imageURL: nil,
             thumbnailURL: nil,

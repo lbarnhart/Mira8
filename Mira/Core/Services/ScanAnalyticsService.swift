@@ -6,7 +6,7 @@ actor ScanAnalyticsService {
     static let shared = ScanAnalyticsService()
 
     private let userDefaults = UserDefaults.standard
-    private let analyticsKey = "scanAnalytics"
+    private let analyticsKey = Constants.UserDefaults.scanAnalytics
 
     // MARK: - Analytics Models
 

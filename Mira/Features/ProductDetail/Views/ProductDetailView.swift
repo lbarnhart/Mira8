@@ -95,16 +95,20 @@ struct ProductDetailView: View {
         }
         .onChange(of: viewModel.productData.healthScore?.overall) { score in
             // Show first scan education if this is the first time
-            let hasSeenFirstScanEducation = UserDefaults.standard.bool(forKey: "hasSeenFirstScanEducation")
+            let hasSeenFirstScanEducation = UserDefaults.standard.bool(
+                forKey: Constants.UserDefaults.hasSeenFirstScanEducation
+            )
             if !hasSeenFirstScanEducation, score != nil {
                 // Small delay to let the view settle
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     showFirstScanEducation = true
-                    UserDefaults.standard.set(true, forKey: "hasSeenFirstScanEducation")
+                    UserDefaults.standard.set(
+                        true,
+                        forKey: Constants.UserDefaults.hasSeenFirstScanEducation
+                    )
                 }
             }
         }
-        .accessibilityIdentifier("screen.productDetail")
     }
 
     @ViewBuilder

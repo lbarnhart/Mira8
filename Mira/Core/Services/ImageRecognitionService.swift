@@ -1,5 +1,6 @@
 import UIKit
 import os
+import Vision
 
 /// Service for recognizing products from images using Claude Vision API.
 /// Handles the full pipeline: image processing -> AI identification -> product search -> fuzzy matching.
@@ -40,7 +41,7 @@ actor ImageRecognitionService {
 
         logger.debug("Image processed: \(imageData.count / 1024)KB")
 
-        // Step 2: Identify product using Claude Vision
+        // Step 2: Identify product using Claude when configured, otherwise on-device OCR.
         let identification = try await identifyProduct(imageData: imageData)
 
         logger.info("Identified product: \(identification.name) (confidence: \(identification.confidence))")
@@ -66,6 +67,12 @@ actor ImageRecognitionService {
     // MARK: - Product Identification
 
     private func identifyProduct(imageData: Data) async throws -> ProductIdentification {
+        let isClaudeConfigured = await claudeService.isConfigured
+        guard isClaudeConfigured else {
+            logger.info("Claude is unavailable; using on-device product-label recognition")
+            return try await identifyProductLocally(imageData: imageData)
+        }
+
         let prompt = buildIdentificationPrompt()
 
         do {
@@ -77,9 +84,73 @@ actor ImageRecognitionService {
 
             return try parseIdentificationResponse(response)
         } catch {
-            logger.error("Vision API error: \(error.localizedDescription)")
-            throw ImageScanError.identificationFailed
+            if error is CancellationError || Task.isCancelled {
+                throw CancellationError()
+            }
+
+            logger.warning("Vision API failed; falling back to on-device recognition: \(error.localizedDescription)")
+            return try await identifyProductLocally(imageData: imageData)
         }
+    }
+
+    private func identifyProductLocally(imageData: Data) async throws -> ProductIdentification {
+        try await Task.detached(priority: .userInitiated) {
+            try Task.checkCancellation()
+            guard let image = UIImage(data: imageData), let cgImage = image.cgImage else {
+                throw ImageScanError.imageProcessingFailed
+            }
+
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            request.recognitionLanguages = ["en-US"]
+
+            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+            try handler.perform([request])
+            try Task.checkCancellation()
+
+            let ignoredTerms = [
+                "nutrition facts", "calories", "ingredients", "serving size",
+                "distributed by", "manufactured by", "net weight", "net wt"
+            ]
+
+            let candidates = (request.results ?? [])
+                .compactMap { $0.topCandidates(1).first }
+                .filter { $0.confidence >= 0.35 }
+                .map { $0.string.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { text in
+                    let lowered = text.lowercased()
+                    return text.count >= 3 && !ignoredTerms.contains(where: lowered.contains)
+                }
+
+            var uniqueLines: [String] = []
+            var seen = Set<String>()
+            for line in candidates {
+                let key = line.lowercased()
+                if seen.insert(key).inserted {
+                    uniqueLines.append(line)
+                }
+            }
+
+            let productLines = Array(uniqueLines.prefix(4))
+            guard !productLines.isEmpty else {
+                throw ImageScanError.noProductDetected
+            }
+
+            let productName = productLines.joined(separator: " ")
+            let confidence = min(0.82, 0.45 + Double(productLines.count) * 0.09)
+
+            return ProductIdentification(
+                name: productName,
+                brand: productLines.count > 1 ? productLines.first : nil,
+                category: nil,
+                confidence: confidence,
+                additionalDetails: [
+                    "reasoning": "Identified from text detected on the package on this device.",
+                    "alternatives": productLines.dropFirst().joined(separator: ", ")
+                ]
+            )
+        }.value
     }
 
     private var systemPrompt: String {
@@ -233,6 +304,7 @@ actor ImageRecognitionService {
                     break
                 }
             } catch {
+                try Task.checkCancellation()
                 logger.warning("❌ USDA search failed for query \"\(query)\": \(error.localizedDescription)")
                 continue
             }
@@ -269,6 +341,7 @@ actor ImageRecognitionService {
                         break
                     }
                 } catch {
+                    try Task.checkCancellation()
                     logger.warning("❌ OFF search failed for query \"\(query)\": \(error.localizedDescription)")
                     continue
                 }
@@ -300,6 +373,7 @@ actor ImageRecognitionService {
                         continue // Skip OFF for this alternative
                     }
                 } catch {
+                    try Task.checkCancellation()
                     logger.warning("  USDA alternative search failed for \(altName): \(error.localizedDescription)")
                 }
 
@@ -316,6 +390,7 @@ actor ImageRecognitionService {
                     logger.debug("  OFF found \(matches.count) matches for \(altName)")
                     allMatches.append(contentsOf: matches)
                 } catch {
+                    try Task.checkCancellation()
                     logger.warning("  OFF alternative search failed for \(altName): \(error.localizedDescription)")
                     continue
                 }

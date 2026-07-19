@@ -8,15 +8,17 @@ struct HealthFocusOption: Identifiable, Equatable {
     let isSystemIcon: Bool
     let tint: Color
 
+    static let defaultOption = HealthFocusOption(
+        id: "generalWellness",
+        title: "General Wellness",
+        description: "Balanced nutrition guidance for everyday healthy habits.",
+        icon: "stethoscope",
+        isSystemIcon: true,
+        tint: .primaryBlue
+    )
+
     static let all: [HealthFocusOption] = [
-        HealthFocusOption(
-            id: "generalWellness",
-            title: "General Wellness",
-            description: "Balanced nutrition guidance for everyday healthy habits.",
-            icon: "stethoscope",
-            isSystemIcon: true,
-            tint: .primaryBlue
-        ),
+        defaultOption,
         HealthFocusOption(
             id: "gutHealth",
             title: "Gut Health",

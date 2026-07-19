@@ -549,7 +549,7 @@ final class IngredientAnalyzer {
             )
         }
 
-        if normalized.contains("whole") || normalized.contains("sprouted") || normalized.contains("flax") || normalized.contains("chia") {
+        if normalized.contains("whole") || normalized.contains("sprouted") || normalized.contains("flax") || normalized.contains("chia") || normalized == "quinoa" {
             return IngredientMetadata(
                 displayName: formatDisplayName(from: normalized),
                 category: .beneficial,

@@ -367,23 +367,18 @@ private struct ExtremeHighSugarRule: GuardrailRule {
 
     func evaluate(product: NormalizedProduct, evaluation: PillarEvaluation) -> GuardrailRuleOutcome {
         let nutrition = product.product.nutrition
-        let servingGrams = parseServingSizeGrams(from: nutrition.servingSize)
-        
-        // Calculate sugar per ACTUAL serving (nutrition values are per 100g)
-        let sugarPerServing = nutrition.sugar * (servingGrams / 100.0)
+        // ProductNutrition values have already been converted to the displayed serving.
+        let sugarPerServing = nutrition.sugar
 
         // >40g sugar per actual serving is concerning
         if sugarPerServing > 40 {
             let formattedSugar = String(format: "%.1f", sugarPerServing)
-            return .hardFail(reason: "Sugar content exceeds safe limits (\(formattedSugar)g per \(Int(servingGrams))g serving).")
+            return .hardFail(reason: "Sugar content exceeds safe limits (\(formattedSugar)g per serving).")
         }
 
         return .none
     }
     
-    private func parseServingSizeGrams(from servingString: String) -> Double {
-        ServingSizeParser.extractGrams(from: servingString)
-    }
 }
 
 private struct ExtremeHighSodiumRule: GuardrailRule {
@@ -392,23 +387,18 @@ private struct ExtremeHighSodiumRule: GuardrailRule {
 
     func evaluate(product: NormalizedProduct, evaluation: PillarEvaluation) -> GuardrailRuleOutcome {
         let nutrition = product.product.nutrition
-        let servingGrams = parseServingSizeGrams(from: nutrition.servingSize)
-        
-        // Calculate sodium per ACTUAL serving (nutrition values are per 100g)
-        let sodiumPerServing = nutrition.sodium * (servingGrams / 100.0)
+        // ProductNutrition values have already been converted to the displayed serving.
+        let sodiumPerServing = nutrition.sodium
 
         // >2g sodium per actual serving is concerning
         if sodiumPerServing > 2.0 {
             let sodiumMg = sodiumPerServing * 1000  // Convert to mg for user display
-            return .hardFail(reason: "Sodium content exceeds safe limits (\(Int(sodiumMg))mg per \(Int(servingGrams))g serving).")
+            return .hardFail(reason: "Sodium content exceeds safe limits (\(Int(sodiumMg))mg per serving).")
         }
 
         return .none
     }
     
-    private func parseServingSizeGrams(from servingString: String) -> Double {
-        ServingSizeParser.extractGrams(from: servingString)
-    }
 }
 
 private struct MissingAllergenDeclarationRule: GuardrailRule {

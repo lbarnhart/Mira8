@@ -5,7 +5,7 @@ struct ProductNutritionView: View {
 
     // Sodium is stored in grams, convert to mg for display and thresholds
     private var sodiumInMg: Double {
-        nutrition.sodium * 1000
+        nutrition.sodiumMilligrams
     }
 
     var body: some View {

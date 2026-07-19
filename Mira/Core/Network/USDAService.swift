@@ -15,7 +15,10 @@ actor USDAService {
         let endpoint = USDAEndpoint.searchByBarcode(barcode: barcode)
         let response: USDASearchResponse = try await apiClient.request(endpoint)
 
-        guard let foodItem = response.foods.first else {
+        let requestedGTIN = BarcodeNormalizer.lookupKey(for: barcode)
+        guard let foodItem = response.foods.first(where: {
+            BarcodeNormalizer.lookupKey(for: $0.gtinUpc ?? "") == requestedGTIN
+        }) else {
             throw NetworkError.productNotFound
         }
 
@@ -245,6 +248,7 @@ private struct USDALabelNutrients: Codable {
     let calories: USDALabelNutrientValue?
     let protein: USDALabelNutrientValue?
     let fat: USDALabelNutrientValue?
+    let saturatedFat: USDALabelNutrientValue?
     let carbohydrates: USDALabelNutrientValue?
     let fiber: USDALabelNutrientValue?
     let sugars: USDALabelNutrientValue?
@@ -259,7 +263,11 @@ private struct USDALabelNutrientValue: Codable {
 // MARK: - Mapping Extensions
 private extension USDAService {
     func mapToProduct(_ usdaFood: USDAFood) throws -> APIProduct {
-        let nutritionalData = mapNutritionalData(usdaFood.foodNutrients ?? [], labelNutrients: usdaFood.labelNutrients)
+        let nutritionalData = mapNutritionalData(
+            usdaFood.foodNutrients ?? [],
+            labelNutrients: usdaFood.labelNutrients,
+            servingSize: usdaFood.servingSize
+        )
         let parsedIngredients = parseIngredients(usdaFood.ingredients)
         let ingredientsRaw = usdaFood.ingredients ?? "nil"
         AppLog.debug("🔍 USDA - Ingredients raw: \(ingredientsRaw)", category: .network)
@@ -280,6 +288,7 @@ private extension USDAService {
             ingredients: parsedIngredients,
             rawIngredientsText: usdaFood.ingredients,
             nutritionalData: nutritionalData,
+            nutritionBasis: usdaFood.labelNutrients == nil ? .per100Grams : .perServing,
             servingSize: usdaFood.servingSize,
             servingSizeUnit: usdaFood.servingSizeUnit ?? "g",
             servingSizeDisplay: servingSizeDisplay,
@@ -290,7 +299,11 @@ private extension USDAService {
     }
 
     func mapToProductDetails(_ response: USDAFoodDetailsResponse) throws -> ProductDetails {
-        let nutritionalData = mapNutritionalData(response.foodNutrients, labelNutrients: response.labelNutrients)
+        let nutritionalData = mapNutritionalData(
+            response.foodNutrients,
+            labelNutrients: response.labelNutrients,
+            servingSize: response.servingSize
+        )
 
         // Use householdServingFullText as display string if available
         let servingSizeDisplay = response.householdServingFullText?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -305,6 +318,7 @@ private extension USDAService {
             ingredients: parseIngredients(response.ingredients),
             rawIngredientsText: response.ingredients,
             nutritionalData: nutritionalData,
+            nutritionBasis: response.labelNutrients == nil ? .per100Grams : .perServing,
             servingSize: response.servingSize,
             servingSizeUnit: response.servingSizeUnit ?? "g",
             servingSizeDisplay: servingSizeDisplay,
@@ -332,7 +346,11 @@ private extension USDAService {
     /// When labelNutrients are available, they are preferred as they represent
     /// the actual serving size. When not available, we fall back to per-100g values.
     /// Downstream consumers should check servingSizeDisplay to understand the basis.
-    func mapNutritionalData(_ nutrients: [USDANutrient], labelNutrients: USDALabelNutrients?) -> NutritionalData {
+    func mapNutritionalData(
+        _ nutrients: [USDANutrient],
+        labelNutrients: USDALabelNutrients?,
+        servingSize: Double?
+    ) -> NutritionalData {
         var nutritionalData = NutritionalData()
 
         // First, extract per-100g values from foodNutrients as fallback
@@ -346,6 +364,8 @@ private extension USDAService {
                 nutritionalData.protein = value
             case "204": // Total fat
                 nutritionalData.fat = value
+            case "606": // Saturated fat
+                nutritionalData.saturatedFat = value
             case "205": // Carbohydrates
                 nutritionalData.carbohydrates = value
             case "291": // Fiber
@@ -356,13 +376,37 @@ private extension USDAService {
                 nutritionalData.sodium = value / 1000 // Convert mg to g
             case "601": // Cholesterol
                 nutritionalData.cholesterol = value / 1000 // Convert mg to g
+            case "320": nutritionalData.vitaminA = value       // mcg RAE
+            case "401": nutritionalData.vitaminC = value       // mg
+            case "328": nutritionalData.vitaminD = value       // mcg
+            case "323": nutritionalData.vitaminE = value       // mg
+            case "430": nutritionalData.vitaminK = value       // mcg
+            case "404": nutritionalData.thiamin = value        // mg
+            case "405": nutritionalData.riboflavin = value     // mg
+            case "406": nutritionalData.niacin = value         // mg
+            case "415": nutritionalData.vitaminB6 = value      // mg
+            case "417": nutritionalData.folate = value         // mcg
+            case "418": nutritionalData.vitaminB12 = value     // mcg
+            case "301": nutritionalData.calcium = value        // mg
+            case "303": nutritionalData.iron = value           // mg
+            case "304": nutritionalData.magnesium = value      // mg
+            case "305": nutritionalData.phosphorus = value     // mg
+            case "306": nutritionalData.potassium = value      // mg
+            case "309": nutritionalData.zinc = value           // mg
             default:
                 break
             }
         }
 
-        // Then, override with per-serving labelNutrients values when available
+        // Convert per-100g fallback fields to the serving basis before applying label values.
+        // This avoids mixing per-serving and per-100g fields in a single NutritionalData value.
         if let labelNutrients = labelNutrients {
+            if let servingSize, servingSize > 0 {
+                nutritionalData = nutritionalData.scaled(by: servingSize / 100)
+            } else {
+                nutritionalData = NutritionalData()
+            }
+
             if let calories = labelNutrients.calories?.value {
                 nutritionalData.calories = calories
             }
@@ -371,6 +415,9 @@ private extension USDAService {
             }
             if let fat = labelNutrients.fat?.value {
                 nutritionalData.fat = fat
+            }
+            if let saturatedFat = labelNutrients.saturatedFat?.value {
+                nutritionalData.saturatedFat = saturatedFat
             }
             if let carbs = labelNutrients.carbohydrates?.value {
                 nutritionalData.carbohydrates = carbs
@@ -390,6 +437,19 @@ private extension USDAService {
                 nutritionalData.cholesterol = cholesterol / 1000
             }
         }
+
+        nutritionalData.availability = DataAvailability(
+            hasMacros: nutritionalData.calories > 0 || nutritionalData.protein > 0 || nutritionalData.fat > 0 || nutritionalData.carbohydrates > 0,
+            hasMicronutrients: [
+                nutritionalData.vitaminA, nutritionalData.vitaminC, nutritionalData.vitaminD,
+                nutritionalData.vitaminE, nutritionalData.vitaminK, nutritionalData.thiamin,
+                nutritionalData.riboflavin, nutritionalData.niacin, nutritionalData.vitaminB6,
+                nutritionalData.folate, nutritionalData.vitaminB12, nutritionalData.calcium,
+                nutritionalData.iron, nutritionalData.magnesium, nutritionalData.phosphorus,
+                nutritionalData.potassium, nutritionalData.zinc
+            ].contains(where: { $0 != nil }),
+            hasIngredients: false
+        )
 
         return nutritionalData
     }
@@ -573,8 +633,16 @@ enum ProcessingLevel: Int, CaseIterable, Codable {
     }
 }
 
-enum ProductSource: String, CaseIterable, Codable {
+enum ProductSource: String, CaseIterable, Codable, Sendable {
     case usda = "USDA"
     case openFoodFacts = "Open Food Facts"
     case manual = "Manual Entry"
+
+    var displayName: String {
+        switch self {
+        case .usda: return "USDA FoodData Central"
+        case .openFoodFacts: return "Open Food Facts"
+        case .manual: return "Mira local catalog"
+        }
+    }
 }

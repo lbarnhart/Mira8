@@ -218,7 +218,7 @@ For developers setting up the project:
 
 1. Copy the sample config:
    ```bash
-   cp Mira/App/Configuration/Configuration.sample.plist Mira/App/Configuration/Configuration.plist
+   cp App/Configuration/Configuration.sample.plist Mira/Resources/Configuration.plist
    ```
 
 2. Get an API key from [console.anthropic.com](https://console.anthropic.com)
@@ -226,7 +226,7 @@ For developers setting up the project:
 3. Add your key to Configuration.plist:
    ```xml
    <key>ClaudeAPIKey</key>
-   <string>sk-ant-api03-xxxxx</string>
+   <string>&lt;CLAUDE_API_KEY&gt;</string>
    ```
 
 4. Verify Configuration.plist is in .gitignore (it should be)

@@ -3,6 +3,7 @@ import XCTest
 final class MiraUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
+        XCUIDevice.shared.orientation = .portrait
     }
 
     @MainActor
@@ -39,7 +40,8 @@ final class MiraUITests: XCTestCase {
         productName.tap()
 
         XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.otherElements["productDetail.focusSnapshot"].waitForExistence(timeout: 5))
+        let focusSnapshot = app.descendants(matching: .any)["productDetail.focusSnapshot"]
+        XCTAssertTrue(focusSnapshot.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["productDetail.compareFocuses"].waitForExistence(timeout: 2))
     }
 
@@ -52,6 +54,96 @@ final class MiraUITests: XCTestCase {
         ])
 
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testDeniedCameraPermissionCanContinueWithSearch() throws {
+        let app = launchApp(arguments: [
+            "-reset-state",
+            "-complete-onboarding",
+            "-selected-tab", "scan",
+            "-simulate-camera-denied"
+        ])
+
+        XCTAssertTrue(app.staticTexts["Camera Access Required"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["scanner.openSettings"].exists)
+
+        app.buttons["scanner.permissionBrowse"].tap()
+        XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testSimulatedBarcodeScanOpensProductDetail() throws {
+        let app = launchApp(arguments: [
+            "-reset-state",
+            "-seed-demo-data",
+            "-selected-tab", "scan",
+            "-simulate-scanned-barcode", "900000000001"
+        ])
+
+        XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testPhotoScanEntryOffersCameraAndPhotoLibrary() throws {
+        let app = launchApp(arguments: [
+            "-reset-state",
+            "-complete-onboarding",
+            "-selected-tab", "scan",
+            "-simulate-camera-available"
+        ])
+
+        XCTAssertTrue(app.buttons["scanner.photoMode"].waitForExistence(timeout: 5))
+        app.buttons["scanner.photoMode"].tap()
+
+        XCTAssertTrue(app.navigationBars["Photo Scan"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["photoScan.camera"].exists)
+        XCTAssertTrue(app.buttons["photoScan.photos"].exists)
+    }
+
+    @MainActor
+    func testPhotoScanSingleMatchOpensProductDetailAfterConfirmation() throws {
+        let app = launchApp(arguments: [
+            "-reset-state",
+            "-seed-demo-data",
+            "-selected-tab", "scan",
+            "-simulate-camera-available",
+            "-simulate-photo-result", "single"
+        ])
+
+        XCTAssertTrue(app.buttons["scanner.photoMode"].waitForExistence(timeout: 5))
+        app.buttons["scanner.photoMode"].tap()
+
+        let match = app.buttons["photoScan.singleMatch"]
+        XCTAssertTrue(match.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["UI Test Granola"].exists)
+        match.tap()
+
+        XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testPhotoScanDisambiguationSelectsProductAndOpensDetail() throws {
+        let app = launchApp(arguments: [
+            "-reset-state",
+            "-seed-demo-data",
+            "-selected-tab", "scan",
+            "-simulate-camera-available",
+            "-simulate-photo-result", "multiple"
+        ])
+
+        XCTAssertTrue(app.buttons["scanner.photoMode"].waitForExistence(timeout: 5))
+        app.buttons["scanner.photoMode"].tap()
+
+        XCTAssertTrue(app.navigationBars["Select Product"].waitForExistence(timeout: 5))
+        let granolaMatch = app.buttons["photoScan.match.900000000001"]
+        XCTAssertTrue(granolaMatch.waitForExistence(timeout: 3))
+        granolaMatch.tap()
+
+        XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
     }
 
@@ -74,8 +166,37 @@ final class MiraUITests: XCTestCase {
         clearButton.tap()
         app.buttons["settings.close"].tap()
 
-        app.tabBars.buttons["History"].tap()
+        // Relaunch directly into History to verify the deletion persisted. This
+        // also avoids relying on Xcode's device-dependent floating-tab role.
+        app.terminate()
+        app.launchArguments = [
+            "-ui-testing",
+            "-complete-onboarding",
+            "-selected-tab", "history"
+        ]
+        app.launch()
+
         XCTAssertTrue(app.staticTexts["No scans yet"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testResetAllAppDataReturnsToOnboarding() throws {
+        let app = launchApp(arguments: [
+            "-reset-state",
+            "-seed-demo-data",
+            "-selected-tab", "profile"
+        ])
+
+        XCTAssertTrue(app.navigationBars["Profile"].waitForExistence(timeout: 5))
+        app.buttons["profile.settings"].tap()
+        XCTAssertTrue(app.buttons["settings.resetAllData"].waitForExistence(timeout: 5))
+
+        app.buttons["settings.resetAllData"].tap()
+        let resetButton = app.alerts.buttons["Reset"]
+        XCTAssertTrue(resetButton.waitForExistence(timeout: 2))
+        resetButton.tap()
+
+        XCTAssertTrue(app.buttons["onboarding.primary"].waitForExistence(timeout: 5))
     }
 
     @MainActor

@@ -11,18 +11,23 @@ struct WeightProfile {
         self.lensApplied = lensApplied
     }
 
-    static func profile(for product: NormalizedProduct) -> WeightProfile {
+    static func profile(for product: NormalizedProduct, healthFocus: HealthFocus) -> WeightProfile {
         var weights: [PillarID: Double]
         var profileID: String
 
-        // Always use general wellness profile (health focus removed)
-        weights = [
-            .p1Sugar: 30,
-            .p2Sodium: 20,
-            .p3MetabolicLoad: 25,
-            .p4PositiveNutrition: 25
-        ]
-        profileID = "weights.general_wellness"
+        switch healthFocus {
+        case .generalWellness:
+            weights = [.p1Sugar: 30, .p2Sodium: 20, .p3MetabolicLoad: 25, .p4PositiveNutrition: 25]
+        case .gutHealth:
+            weights = [.p1Sugar: 30, .p2Sodium: 10, .p3MetabolicLoad: 20, .p4PositiveNutrition: 40]
+        case .weightLoss:
+            weights = [.p1Sugar: 30, .p2Sodium: 10, .p3MetabolicLoad: 40, .p4PositiveNutrition: 20]
+        case .proteinFocus:
+            weights = [.p1Sugar: 15, .p2Sodium: 15, .p3MetabolicLoad: 20, .p4PositiveNutrition: 50]
+        case .heartHealth:
+            weights = [.p1Sugar: 20, .p2Sodium: 35, .p3MetabolicLoad: 30, .p4PositiveNutrition: 15]
+        }
+        profileID = "weights.\(healthFocus.rawValue)"
 
         if product.isBeverage {
             weights[.p1Sugar] = (weights[.p1Sugar] ?? 25) * 0.85

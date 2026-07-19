@@ -67,9 +67,18 @@ struct ImageScannerView: View {
                 matching: .images
             )
             .onChange(of: selectedItem) { newItem in
+                guard let newItem else { return }
                 Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                    do {
+                        guard let data = try await newItem.loadTransferable(type: Data.self) else {
+                            viewModel.handleImageImportFailure()
+                            return
+                        }
                         await viewModel.processImageData(data)
+                    } catch is CancellationError {
+                        return
+                    } catch {
+                        viewModel.handleImageImportFailure()
                     }
                 }
             }
@@ -88,6 +97,7 @@ struct ImageScannerView: View {
                 if !hasPermission {
                     // Will show photo library option instead
                 }
+                viewModel.applyConfiguredSimulationIfNeeded()
             }
         }
     }
@@ -303,6 +313,7 @@ struct ImageScannerView: View {
             .cornerRadius(CornerRadius.md)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("photoScan.singleMatch")
     }
 
     private var errorCard: some View {
@@ -368,6 +379,7 @@ struct ImageScannerView: View {
                             .foregroundColor(.white)
                             .cornerRadius(CornerRadius.md)
                     }
+                    .accessibilityIdentifier("photoScan.camera")
 
                     Button {
                         showImagePicker = true
@@ -379,6 +391,7 @@ struct ImageScannerView: View {
                             .foregroundColor(.primaryBlue)
                             .cornerRadius(CornerRadius.md)
                     }
+                    .accessibilityIdentifier("photoScan.photos")
                 }
             } else if shouldShowRetryButtons {
                 // Retry actions
@@ -392,6 +405,7 @@ struct ImageScannerView: View {
                         .foregroundColor(.white)
                         .cornerRadius(CornerRadius.md)
                 }
+                .accessibilityIdentifier("photoScan.retry")
 
                 Button {
                     viewModel.retryWithNewImage()
@@ -400,6 +414,7 @@ struct ImageScannerView: View {
                         .font(.callout)
                         .foregroundColor(.primaryBlue)
                 }
+                .accessibilityIdentifier("photoScan.newPhoto")
             }
         }
     }
@@ -407,11 +422,8 @@ struct ImageScannerView: View {
     // MARK: - Computed Properties
 
     private var shouldShowCaptureButtons: Bool {
-        if viewModel.capturedImage == nil { return true }
-        if viewModel.hasError { return true }
-        if case .noMatches = viewModel.state { return true }
-        if case .idle = viewModel.state { return true }
-        return false
+        guard case .idle = viewModel.state else { return false }
+        return viewModel.capturedImage == nil
     }
 
     private var shouldShowRetryButtons: Bool {
@@ -467,6 +479,7 @@ struct ProductDisambiguationSheet: View {
                             .foregroundColor(.primaryBlue)
                     }
                     .padding()
+                    .accessibilityIdentifier("photoScan.noneCorrect")
                 }
             }
             .navigationTitle("Select Product")
@@ -548,6 +561,7 @@ struct MatchSelectionRow: View {
             .cornerRadius(CornerRadius.md)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("photoScan.match.\(match.barcode)")
     }
 
     private var matchQualityColor: Color {

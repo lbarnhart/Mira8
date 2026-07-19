@@ -449,6 +449,11 @@ final class ProductService: ProductServiceProtocol {
             return convertAPIProduct(localProduct)
         }
 
+        if let essentialProduct = await EssentialsDatabase.shared.getProductIfAvailable(barcode: barcode) {
+            AppLog.debug("Using offline essentials product for \(barcode)", category: .network)
+            return convertAPIProduct(essentialProduct)
+        }
+
         // Run USDA and Open Food Facts lookups in parallel for faster loading
         async let usdaTask: APIProduct? = fetchUSDAProduct(barcode: barcode)
         async let offTask: APIProduct? = fetchOFFProduct(barcode: barcode)
@@ -539,7 +544,14 @@ final class ProductService: ProductServiceProtocol {
     }
 
     private func merge(primary: APIProduct, with fallback: APIProduct) -> APIProduct {
-        let mergedNutrition = mergeNutrition(primary: primary.nutritionalData, fallback: fallback.nutritionalData)
+        let compatibleFallbackNutrition = fallback.nutritionalData(
+            convertedTo: primary.nutritionBasis,
+            targetServingSizeInReferenceUnits: primary.servingSizeInReferenceUnits
+        )
+        let mergedNutrition = mergeNutrition(
+            primary: primary.nutritionalData,
+            fallback: compatibleFallbackNutrition ?? NutritionalData()
+        )
 
         let mergedBrand = preferredValue(primary: primary.brand, fallback: fallback.brand, unknownToken: "Unknown")
         let mergedName = preferredValue(primary: primary.name, fallback: fallback.name, unknownToken: "Unknown Product")
@@ -578,6 +590,7 @@ final class ProductService: ProductServiceProtocol {
             ingredients: resolvedIngredients,
             rawIngredientsText: rawIngredients,
             nutritionalData: mergedNutrition,
+            nutritionBasis: primary.nutritionBasis,
             servingSize: servingSize,
             servingSizeUnit: servingUnit,
             servingSizeDisplay: servingSizeDisplay,
@@ -594,10 +607,28 @@ final class ProductService: ProductServiceProtocol {
         if merged.protein == 0 { merged.protein = fallback.protein }
         if merged.carbohydrates == 0 { merged.carbohydrates = fallback.carbohydrates }
         if merged.fat == 0 { merged.fat = fallback.fat }
+        if merged.saturatedFat == 0 { merged.saturatedFat = fallback.saturatedFat }
         if merged.fiber == 0 { merged.fiber = fallback.fiber }
         if merged.sugar == 0 { merged.sugar = fallback.sugar }
         if merged.sodium == 0 { merged.sodium = fallback.sodium }
         if merged.cholesterol == 0 { merged.cholesterol = fallback.cholesterol }
+        if merged.vitaminA == nil { merged.vitaminA = fallback.vitaminA }
+        if merged.vitaminC == nil { merged.vitaminC = fallback.vitaminC }
+        if merged.vitaminD == nil { merged.vitaminD = fallback.vitaminD }
+        if merged.vitaminE == nil { merged.vitaminE = fallback.vitaminE }
+        if merged.vitaminK == nil { merged.vitaminK = fallback.vitaminK }
+        if merged.thiamin == nil { merged.thiamin = fallback.thiamin }
+        if merged.riboflavin == nil { merged.riboflavin = fallback.riboflavin }
+        if merged.niacin == nil { merged.niacin = fallback.niacin }
+        if merged.vitaminB6 == nil { merged.vitaminB6 = fallback.vitaminB6 }
+        if merged.folate == nil { merged.folate = fallback.folate }
+        if merged.vitaminB12 == nil { merged.vitaminB12 = fallback.vitaminB12 }
+        if merged.calcium == nil { merged.calcium = fallback.calcium }
+        if merged.iron == nil { merged.iron = fallback.iron }
+        if merged.magnesium == nil { merged.magnesium = fallback.magnesium }
+        if merged.phosphorus == nil { merged.phosphorus = fallback.phosphorus }
+        if merged.potassium == nil { merged.potassium = fallback.potassium }
+        if merged.zinc == nil { merged.zinc = fallback.zinc }
 
         return merged
     }
@@ -612,21 +643,10 @@ final class ProductService: ProductServiceProtocol {
     }
 
     private func convertAPIProduct(_ api: APIProduct) -> ProductModel {
-        // Map API nutritional data to app nutrition model
-        // Use servingSizeDisplay if available (e.g., "2 tbsp (30 g)"), else fall back to "100g"
-        let servingDisplay = api.servingSizeDisplay ?? "100g"
-        let servingMultiplier = (api.servingSizeInGrams ?? 100) / 100
-        let adjustedNutritionData = api.nutritionalData.scaled(by: servingMultiplier)
+        let adjustedNutritionData = api.nutritionalDataForDisplayedServing
         let nutrition = ProductNutrition(
-            calories: adjustedNutritionData.calories,
-            protein: adjustedNutritionData.protein,
-            carbohydrates: adjustedNutritionData.carbohydrates,
-            fat: adjustedNutritionData.fat,
-            fiber: adjustedNutritionData.fiber,
-            sugar: adjustedNutritionData.sugar,
-            sodium: adjustedNutritionData.sodium,
-            cholesterol: adjustedNutritionData.cholesterol,
-            servingSize: servingDisplay
+            from: adjustedNutritionData,
+            servingSize: api.servingSizeLabelForDisplay
         )
 
         let normalizedIngredients: [String]
@@ -658,51 +678,12 @@ final class ProductService: ProductServiceProtocol {
             createdAt: Date(),
             updatedAt: Date(),
             isCached: false,
-            rawIngredientsText: api.rawIngredientsText
+            rawIngredientsText: api.rawIngredientsText,
+            dataSource: api.source
         )
     }
 
     private func convertStoredProduct(_ stored: Product) -> ProductModel {
-        let ingredientList = (stored.ingredients ?? "")
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-
-        let processingLevel = ProcessingLevel.determine(for: ingredientList)
-        let servingDisplay = stored.servingSize?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let servingText = (servingDisplay?.isEmpty == false) ? servingDisplay! : "100g"
-
-        return ProductModel(
-            id: UUID(uuidString: stored.id) ?? UUID(),
-            name: stored.name,
-            brand: stored.brand,
-            category: stored.category,
-            categorySlug: stored.category?.lowercased().replacingOccurrences(of: " ", with: "-"),
-            barcode: stored.barcode,
-            nutrition: ProductNutrition(
-                calories: stored.nutritionalData.calories,
-                protein: stored.nutritionalData.protein,
-                carbohydrates: stored.nutritionalData.carbohydrates,
-                fat: stored.nutritionalData.fat,
-                saturatedFat: stored.nutritionalData.saturatedFat,
-                fiber: stored.nutritionalData.fiber,
-                sugar: stored.nutritionalData.sugar,
-                sodium: stored.nutritionalData.sodium,
-                cholesterol: stored.nutritionalData.cholesterol,
-                servingSize: servingText
-            ),
-            ingredients: ingredientList,
-            additives: [],
-            processingLevel: processingLevel,
-            dietaryFlags: [],
-            imageURL: stored.imageURL,
-            thumbnailURL: stored.thumbnailURL,
-            healthScore: 0,
-            createdAt: stored.lastScanned ?? Date(),
-            updatedAt: stored.lastScanned ?? Date(),
-            isCached: true,
-            rawIngredientsText: stored.ingredients,
-            nutriScore: stored.nutriScore
-        )
+        stored.toProductModel()
     }
 }

@@ -62,7 +62,6 @@ struct NLSearchView: View {
                     restrictions: newValue
                 )
             }
-            .accessibilityIdentifier("screen.search")
         }
     }
 

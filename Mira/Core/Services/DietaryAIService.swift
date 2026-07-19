@@ -111,7 +111,8 @@ actor DietaryAIService {
         let ingredientsText = product.rawIngredientsText ?? product.ingredients.joined(separator: ", ")
         let restrictionNames = restrictions.map { $0.displayName }.joined(separator: ", ")
 
-        let cacheKey = "dietary_\(product.barcode ?? product.name.hash.description)_\(restrictionNames.hash)"
+        let productKey = product.barcode.isEmpty ? product.name.hash.description : product.barcode
+        let cacheKey = "dietary_\(productKey)_\(restrictionNames.hash)"
 
         let systemPrompt = """
         You are a food safety expert for the Mira health app. Your role is to analyze \

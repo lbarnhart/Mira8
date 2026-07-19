@@ -13,6 +13,10 @@ struct ProductOverviewView: View {
             // 1. Quick Nutrient Summary - Compact horizontal pills
             nutrientSummarySection()
 
+            if let source = product.dataSource {
+                dataSourceNote(source)
+            }
+
             // 2. Key Takeaways - What matters most
             if let score = healthScore {
                 keyTakeawaysSection(score)
@@ -26,7 +30,7 @@ struct ProductOverviewView: View {
 
     private func nutrientSummarySection() -> some View {
         let nutrition = product.nutrition
-        let sodiumMg = nutrition.sodium * 1000
+        let sodiumMg = nutrition.sodiumMilligrams
 
         return HStack(spacing: Spacing.sm) {
             nutrientPill(
@@ -71,6 +75,21 @@ struct ProductOverviewView: View {
         .padding(.vertical, 6)
         .background(level.color.opacity(0.1))
         .cornerRadius(CornerRadius.pill)
+    }
+
+    private func dataSourceNote(_ source: ProductSource) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark.shield")
+                .accessibilityHidden(true)
+
+            Text("Data from \(source.displayName). Verify against the current package label.")
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .foregroundColor(.textSecondary)
+        .accessibilityElement(children: .combine)
     }
 
     private func keyTakeawaysSection(_ score: HealthScore) -> some View {

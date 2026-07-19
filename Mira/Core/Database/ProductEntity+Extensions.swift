@@ -3,24 +3,26 @@ import CoreData
 
 extension ProductEntity {
     func toProduct() -> Product? {
-        guard let barcode = self.barcode, let name = self.name else {
+        guard let id = self.id, let barcode = self.barcode, let name = self.name else {
             AppLog.warning("Missing required fields in ProductEntity", category: .persistence)
             return nil
         }
 
-        var nutritionalInfo = NutritionalData()
-        if let data = self.nutritionalData {
-            if let decoded = try? JSONDecoder().decode(NutritionalData.self, from: data) {
-                nutritionalInfo = decoded
-            } else {
-                AppLog.warning("Failed to decode NutritionalData from ProductEntity for barcode: \(barcode)", category: .persistence)
-            }
-        } else {
+        guard let data = self.nutritionalData else {
             AppLog.warning("No NutritionalData stored for ProductEntity barcode: \(barcode)", category: .persistence)
+            return nil
+        }
+
+        let nutritionalInfo: NutritionalData
+        do {
+            nutritionalInfo = try JSONDecoder().decode(NutritionalData.self, from: data)
+        } catch {
+            AppLog.warning("Failed to decode NutritionalData from ProductEntity for barcode: \(barcode)", category: .persistence)
+            return nil
         }
 
         let product = Product(
-            id: self.id ?? UUID().uuidString,
+            id: id,
             barcode: barcode,
             name: name,
             brand: self.brand,
@@ -31,7 +33,8 @@ extension ProductEntity {
             imageURL: self.imageURL,
             thumbnailURL: self.thumbnailURL ?? self.imageURL,
             lastScanned: self.lastScanned,
-            nutriScore: self.nutriScore
+            nutriScore: self.nutriScore,
+            dataSource: self.dataSource.flatMap(ProductSource.init(rawValue:))
         )
 
         AppLog.debug("Converted ProductEntity to Product: \(product.name)", category: .persistence)
@@ -45,7 +48,7 @@ extension ProductEntity {
         request.predicate = NSPredicate(format: "barcode == %@", product.barcode)
         request.fetchLimit = 1
 
-        let entity = (try? context.fetch(request).first) ?? ProductEntity(context: context)
+        let entity = try context.fetch(request).first ?? ProductEntity(context: context)
 
         entity.id = product.id
         entity.barcode = product.barcode
@@ -58,13 +61,9 @@ extension ProductEntity {
         entity.thumbnailURL = product.thumbnailURL ?? product.imageURL
         entity.lastScanned = product.lastScanned ?? Date()
         entity.nutriScore = product.nutriScore
+        entity.dataSource = product.dataSource?.rawValue
 
-        // Encode nutritional data
-        if let data = try? JSONEncoder().encode(product.nutritionalData) {
-            entity.nutritionalData = data
-        } else {
-            AppLog.warning("Failed to encode NutritionalData for product barcode: \(product.barcode)", category: .persistence)
-        }
+        entity.nutritionalData = try JSONEncoder().encode(product.nutritionalData)
 
         AppLog.debug("Created/Updated ProductEntity from Product: \(product.name)", category: .persistence)
         AppLog.debug("   Protein: \(product.nutritionalData.protein)g, Fiber: \(product.nutritionalData.fiber)g", category: .persistence)

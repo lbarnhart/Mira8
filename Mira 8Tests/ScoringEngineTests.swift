@@ -33,8 +33,8 @@ final class ScoringEngineTests: XCTestCase {
     
     func testCalculateHealthScore_withHighSodium_returnsLowerScore() {
         // Given: Products with different sodium levels
-        let lowSodiumProduct = createTestProduct(name: "Low Sodium", sodium: 10.0)
-        let highSodiumProduct = createTestProduct(name: "High Sodium", sodium: 2000.0)
+        let lowSodiumProduct = createTestProduct(name: "Low Sodium", sodium: 0.05)
+        let highSodiumProduct = createTestProduct(name: "High Sodium", sodium: 1.5)
         
         // When: Calculating scores
         let lowSodiumScore = ScoringEngine.shared.calculateHealthScore(
@@ -206,7 +206,7 @@ final class ScoringEngineTests: XCTestCase {
     private func createTestProduct(
         name: String,
         sugar: Double = 5.0,
-        sodium: Double = 100.0,
+        sodium: Double = 0.1,
         fiber: Double = 2.0,
         protein: Double = 5.0,
         fat: Double = 3.0,

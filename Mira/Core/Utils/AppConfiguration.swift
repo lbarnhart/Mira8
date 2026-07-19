@@ -3,7 +3,6 @@ import Foundation
 /// Centralized configuration loader for environment-specific secrets and toggles.
 struct AppConfiguration {
     static let shared = AppConfiguration()
-    private static var hasWarnedMissingUSDAKey = false
 
     private enum ConfigurationKey: String {
         case usdaAPIKey = "USDAAPIKey"
@@ -83,23 +82,16 @@ struct AppConfiguration {
     }
 
     var usdaAPIKey: String {
-        let value = value(for: .usdaAPIKey) ?? Constants.API.defaultUSDAAPIKey
-        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !Self.hasWarnedMissingUSDAKey {
-            Self.hasWarnedMissingUSDAKey = true
-            AppLog.warning("USDA API key is not configured. Requests to FoodData Central will fail until a key is provided.", category: .configuration)
-        }
-        return value
+        value(for: .usdaAPIKey) ?? Constants.API.defaultUSDAAPIKey
     }
 
-    private static var hasWarnedMissingClaudeKey = false
-
     var claudeAPIKey: String {
-        let value = value(for: .claudeAPIKey) ?? ""
-        if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !Self.hasWarnedMissingClaudeKey {
-            Self.hasWarnedMissingClaudeKey = true
-            AppLog.warning("Claude API key is not configured. AI features will be disabled.", category: .configuration)
-        }
-        return value
+        #if !DEBUG
+        // Provider API keys must never be distributed in an App Store binary.
+        return ""
+        #else
+        return value(for: .claudeAPIKey) ?? ""
+        #endif
     }
 
     var privacyPolicyURL: URL? {

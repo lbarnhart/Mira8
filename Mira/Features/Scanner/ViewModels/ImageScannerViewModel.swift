@@ -19,17 +19,27 @@ final class ImageScannerViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let recognitionService: ImageRecognitionService
+    private let launchConfiguration: AppLaunchConfiguration
     private let logger = Logger(subsystem: "com.mira8.app", category: "ImageScannerViewModel")
+    private var recognitionGeneration = UUID()
+    private var hasAppliedConfiguredSimulation = false
 
     // MARK: - Initialization
 
-    init(recognitionService: ImageRecognitionService? = nil) {
+    init(
+        recognitionService: ImageRecognitionService? = nil,
+        launchConfiguration: AppLaunchConfiguration = .current
+    ) {
         self.recognitionService = recognitionService ?? ImageRecognitionService()
+        self.launchConfiguration = launchConfiguration
     }
 
     // MARK: - Camera Access
 
     func checkCameraPermission() async -> Bool {
+        if launchConfiguration.shouldSimulateCameraDenied { return false }
+        if launchConfiguration.shouldSimulateCameraAvailable { return true }
+
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             return true
@@ -50,11 +60,14 @@ final class ImageScannerViewModel: ObservableObject {
             return
         }
 
+        let generation = UUID()
+        recognitionGeneration = generation
         capturedImage = image
         state = .processing
 
         // Validate image
         let validation = await validateImage(image)
+        guard recognitionGeneration == generation else { return }
         switch validation {
         case .invalid(let reason):
             state = .error(.imageProcessingFailed)
@@ -67,7 +80,7 @@ final class ImageScannerViewModel: ObservableObject {
         }
 
         // Run recognition pipeline
-        await recognizeProduct(from: image)
+        await recognizeProduct(from: image, generation: generation)
     }
 
     func processImageData(_ data: Data) async {
@@ -79,9 +92,77 @@ final class ImageScannerViewModel: ObservableObject {
         await processImage(image)
     }
 
+    func handleImageImportFailure() {
+        recognitionGeneration = UUID()
+        state = .error(.imageProcessingFailed)
+    }
+
+    /// Publishes deterministic recognition states for UI tests without invoking
+    /// the camera, Vision, or external product services.
+    func applyConfiguredSimulationIfNeeded() {
+        guard !hasAppliedConfiguredSimulation,
+              let scenario = launchConfiguration.simulatedPhotoScanScenario else {
+            return
+        }
+
+        hasAppliedConfiguredSimulation = true
+        recognitionGeneration = UUID()
+        capturedImage = UIImage(systemName: "shippingbox.fill")
+        identification = ProductIdentification(
+            name: "Mira Test Granola",
+            brand: "Mira Labs",
+            category: "Breakfast",
+            confidence: 0.94
+        )
+
+        let simulatedMatches = [
+            ProductMatch(
+                id: "ui-photo-granola",
+                barcode: "900000000001",
+                name: "UI Test Granola",
+                brand: "Mira Labs",
+                category: "Breakfast",
+                thumbnailURL: nil,
+                matchScore: 0.96
+            ),
+            ProductMatch(
+                id: "ui-photo-yogurt",
+                barcode: "900000000002",
+                name: "UI Test Greek Yogurt",
+                brand: "Mira Labs",
+                category: "Dairy",
+                thumbnailURL: nil,
+                matchScore: 0.81
+            )
+        ]
+
+        switch scenario {
+        case .singleMatch:
+            matches = [simulatedMatches[0]]
+            selectedMatch = simulatedMatches[0]
+            showDisambiguation = false
+            state = .matched(matches)
+        case .multipleMatches:
+            matches = simulatedMatches
+            selectedMatch = nil
+            state = .matched(matches)
+            showDisambiguation = true
+        case .noMatches:
+            matches = []
+            selectedMatch = nil
+            showDisambiguation = false
+            state = .noMatches
+        case .error:
+            matches = []
+            selectedMatch = nil
+            showDisambiguation = false
+            state = .error(.identificationFailed)
+        }
+    }
+
     // MARK: - Recognition Pipeline
 
-    private func recognizeProduct(from image: UIImage) async {
+    private func recognizeProduct(from image: UIImage, generation: UUID) async {
         logger.info("🔄 Starting recognition pipeline")
         state = .identifying
 
@@ -89,6 +170,7 @@ final class ImageScannerViewModel: ObservableObject {
             // Get identification first (for UI feedback)
             logger.info("📸 Step 1: Identifying product...")
             let ident = try await recognitionService.identifyOnly(from: image)
+            guard recognitionGeneration == generation else { return }
             identification = ident
             logger.info("✅ Step 1 complete: \(ident.name) (confidence: \(ident.confidence))")
 
@@ -97,6 +179,7 @@ final class ImageScannerViewModel: ObservableObject {
 
             // Then search for matches using the identification we already have
             let productMatches = try await recognitionService.searchMatches(for: ident)
+            guard recognitionGeneration == generation else { return }
             matches = productMatches
             logger.info("✅ Step 2 complete: Found \(productMatches.count) matches")
 
@@ -116,10 +199,14 @@ final class ImageScannerViewModel: ObservableObject {
             }
 
             logger.info("Recognition complete: \(productMatches.count) matches")
+        } catch is CancellationError {
+            return
         } catch let error as ImageScanError {
+            guard recognitionGeneration == generation else { return }
             state = .error(error)
             logger.error("❌ Recognition failed with ImageScanError: \(error.localizedDescription)")
         } catch {
+            guard recognitionGeneration == generation else { return }
             state = .error(.identificationFailed)
             logger.error("❌ Recognition failed with unexpected error: \(error.localizedDescription)")
         }
@@ -146,8 +233,10 @@ final class ImageScannerViewModel: ObservableObject {
             return
         }
 
+        let generation = UUID()
+        recognitionGeneration = generation
         Task {
-            await recognizeProduct(from: image)
+            await recognizeProduct(from: image, generation: generation)
         }
     }
 
@@ -156,12 +245,14 @@ final class ImageScannerViewModel: ObservableObject {
     }
 
     func reset() {
+        recognitionGeneration = UUID()
         state = .idle
         capturedImage = nil
         identification = nil
         matches = []
         selectedMatch = nil
         showDisambiguation = false
+        hasAppliedConfiguredSimulation = false
     }
 
     // MARK: - Helpers

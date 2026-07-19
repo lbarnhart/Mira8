@@ -3,7 +3,6 @@ import Foundation
 final class HealthScoringPipeline {
     private let inputNormalizer: ScoringInputNormalizer
     private let pillarEvaluator: PillarEvaluator
-    private let guardrailEngine: GuardrailEngine
     private let tierMapper: TierMapper
     private let percentileCalculator: CategoryPercentileCalculator
     private let algorithmVersion: String
@@ -12,14 +11,11 @@ final class HealthScoringPipeline {
     init(
         inputNormalizer: ScoringInputNormalizer = ScoringInputNormalizer(),
         pillarEvaluator: PillarEvaluator = PillarEvaluator(),
-        guardrailEngine: GuardrailEngine? = nil,
         tierMapper: TierMapper = TierMapper(),
-        percentileCalculator: CategoryPercentileCalculator = .shared,
-        dietaryRestrictions: [DietaryRestriction] = []
+        percentileCalculator: CategoryPercentileCalculator = .shared
     ) {
         self.inputNormalizer = inputNormalizer
         self.pillarEvaluator = pillarEvaluator
-        self.guardrailEngine = guardrailEngine ?? GuardrailEngine(dietaryRestrictions: dietaryRestrictions)
         self.tierMapper = tierMapper
         self.percentileCalculator = percentileCalculator
         self.algorithmVersion = "health-scoring-v1.1.1"
@@ -30,12 +26,20 @@ final class HealthScoringPipeline {
         }
     }
 
-    func score(for product: ProductModel, activeCaps: Set<String> = [], dietaryRestrictions: [DietaryRestriction] = []) -> HealthScore {
+    func score(
+        for product: ProductModel,
+        healthFocus: HealthFocus,
+        activeCaps: Set<String> = [],
+        dietaryRestrictions: [DietaryRestriction] = []
+    ) -> HealthScore {
         let input = inputNormalizer.normalize(product: product)
         let normalizedProduct = NormalizedProduct(input: input)
-        let evaluation = pillarEvaluator.evaluate(input: input)
-        // Reinitialize guardrailEngine with dietary restrictions if needed
-        let guardrail = guardrailEngine.apply(product: normalizedProduct, evaluation: evaluation, activeCaps: activeCaps)
+        let evaluation = pillarEvaluator.evaluate(input: input, healthFocus: healthFocus)
+        let guardrail = GuardrailEngine(dietaryRestrictions: dietaryRestrictions).apply(
+            product: normalizedProduct,
+            evaluation: evaluation,
+            activeCaps: activeCaps
+        )
         let mapping = tierMapper.map(evaluation: evaluation, guardrail: guardrail)
 
         let pillarsRemaining = max(evaluation.pillars.count - evaluation.pillarsDropped.count, 0)

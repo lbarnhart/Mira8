@@ -18,8 +18,60 @@ extension ProductModel {
             imageURL: imageURL,
             thumbnailURL: thumbnailURL,
             lastScanned: Date(),
-            nutriScore: nutriScore
+            nutriScore: nutriScore,
+            dataSource: dataSource
         )
+    }
+}
+
+extension Product {
+    /// Convert a persisted product back to the UI model without dropping nutrient fields.
+    func toProductModel(
+        nutritionalData overrideNutrition: NutritionalData? = nil,
+        servingSize overrideServingSize: String? = nil
+    ) -> ProductModel {
+        let ingredientList = (ingredients ?? "")
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        let resolvedServingSize = overrideServingSize
+            ?? self.servingSize?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let servingText: String
+        if let resolvedServingSize, !resolvedServingSize.isEmpty {
+            servingText = resolvedServingSize
+        } else {
+            servingText = "100g"
+        }
+        let resolvedNutrition = overrideNutrition ?? nutritionalData
+
+        var model = ProductModel(
+            id: UUID(uuidString: id) ?? UUID(),
+            name: name,
+            brand: brand,
+            category: category,
+            categorySlug: category?.lowercased().replacingOccurrences(of: " ", with: "-"),
+            barcode: barcode,
+            nutrition: ProductNutrition(from: resolvedNutrition, servingSize: servingText),
+            ingredients: ingredientList,
+            additives: [],
+            processingLevel: ProcessingLevel.determine(for: ingredientList),
+            dietaryFlags: [],
+            imageURL: imageURL,
+            thumbnailURL: thumbnailURL,
+            healthScore: 0,
+            createdAt: lastScanned ?? Date(),
+            updatedAt: lastScanned ?? Date(),
+            isCached: true,
+            rawIngredientsText: ingredients,
+            nutriScore: nutriScore,
+            dataSource: dataSource
+        )
+        model.fruitVegEstimate = FruitVegLegumeNutEstimator.shared.estimate(
+            ingredients: ingredientList,
+            rawText: ingredients,
+            categorySlug: model.categorySlug
+        )
+        return model
     }
 }
 

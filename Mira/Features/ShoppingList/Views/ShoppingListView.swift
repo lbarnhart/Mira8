@@ -59,7 +59,6 @@ struct ShoppingListView: View {
                         .environmentObject(appState)
                 }
             }
-            .accessibilityIdentifier("screen.shoppingList")
         }
     }
 
@@ -325,6 +324,8 @@ private struct ShoppingListItemRow: View {
     let onDelete: () -> Void
 
     var body: some View {
+        let brandDescription = item.brand.map { ", \($0)" } ?? ""
+
         HStack(spacing: Spacing.md) {
             // Checkbox
             Button {
@@ -371,7 +372,7 @@ private struct ShoppingListItemRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(item.productName)\(item.brand != nil ? ", \(item.brand!)" : ""), score \(Int(item.healthScore))")
+            .accessibilityLabel("\(item.productName)\(brandDescription), score \(Int(item.healthScore))")
             .accessibilityHint("Double tap to view product details")
 
             // Delete Button

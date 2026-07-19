@@ -151,8 +151,15 @@ enum GapSeverity: String, CaseIterable, Comparable {
     }
 
     static func < (lhs: GapSeverity, rhs: GapSeverity) -> Bool {
-        let order: [GapSeverity] = [.mild, .moderate, .significant]
-        return order.firstIndex(of: lhs)! < order.firstIndex(of: rhs)!
+        lhs.sortOrder < rhs.sortOrder
+    }
+
+    private var sortOrder: Int {
+        switch self {
+        case .mild: return 0
+        case .moderate: return 1
+        case .significant: return 2
+        }
     }
 }
 

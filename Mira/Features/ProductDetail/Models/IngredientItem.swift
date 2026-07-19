@@ -102,13 +102,13 @@ extension IngredientCategory {
     var healthImpact: String {
         switch self {
         case .beneficial:
-            return "Supports overall health when included as part of a balanced diet."
+            return "May contribute useful nutrients or whole-food qualities. The amount present and the overall product still matter."
         case .neutral:
-            return "Generally safe for most people in typical amounts."
+            return "Commonly used in foods. Individual tolerance, amount, and the overall product still matter."
         case .concerning:
-            return "Linked to potential health concerns when consumed frequently or in large amounts."
+            return "Mira flags this as an ingredient to review, not as a safety diagnosis. Risk depends on amount, frequency, and individual sensitivity."
         case .unknown:
-            return "Impact unclear; consider researching or limiting if unsure."
+            return "Mira does not have enough reliable context to classify this ingredient. Check the package and a qualified source if it matters to you."
         }
     }
 }

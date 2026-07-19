@@ -19,7 +19,10 @@ final class ProductModelFactory {
             category: apiProduct.category,
             categorySlug: apiProduct.categorySlug,
             barcode: apiProduct.barcode,
-            nutrition: ProductNutrition(from: apiProduct.nutritionalData, servingSize: apiProduct.servingSizeDisplay ?? "100g"),
+            nutrition: ProductNutrition(
+                from: apiProduct.nutritionalDataForDisplayedServing,
+                servingSize: apiProduct.servingSizeLabelForDisplay
+            ),
             ingredients: apiProduct.ingredients,
             additives: [],
             processingLevel: apiProduct.processingLevel ?? .unknown,
@@ -31,7 +34,8 @@ final class ProductModelFactory {
             updatedAt: Date(),
             isCached: false,
             rawIngredientsText: apiProduct.rawIngredientsText,
-            nutriScore: apiProduct.nutriScore
+            nutriScore: apiProduct.nutriScore,
+            dataSource: apiProduct.source
         )
 
         // Add fruit/veg estimation
@@ -49,44 +53,5 @@ final class ProductModelFactory {
         guard let display = servingSizeDisplay else { return "per 100g" }
         let trimmed = display.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "per 100g" : "per serving (\(trimmed))"
-    }
-}
-
-// MARK: - ProductNutrition Extension
-
-extension ProductNutrition {
-    /// Convenience initializer from NutritionalData
-    init(from nutritionalData: NutritionalData, servingSize: String) {
-        self.init(
-            calories: nutritionalData.calories,
-            protein: nutritionalData.protein,
-            carbohydrates: nutritionalData.carbohydrates,
-            fat: nutritionalData.fat,
-            saturatedFat: nutritionalData.saturatedFat,
-            fiber: nutritionalData.fiber,
-            sugar: nutritionalData.sugar,
-            sodium: nutritionalData.sodium,
-            cholesterol: nutritionalData.cholesterol,
-            servingSize: servingSize,
-            labelServingSize: servingSize,
-            vitaminA: nutritionalData.vitaminA,
-            vitaminC: nutritionalData.vitaminC,
-            vitaminD: nutritionalData.vitaminD,
-            vitaminE: nutritionalData.vitaminE,
-            vitaminK: nutritionalData.vitaminK,
-            thiamin: nutritionalData.thiamin,
-            riboflavin: nutritionalData.riboflavin,
-            niacin: nutritionalData.niacin,
-            vitaminB6: nutritionalData.vitaminB6,
-            folate: nutritionalData.folate,
-            vitaminB12: nutritionalData.vitaminB12,
-            calcium: nutritionalData.calcium,
-            iron: nutritionalData.iron,
-            magnesium: nutritionalData.magnesium,
-            phosphorus: nutritionalData.phosphorus,
-            potassium: nutritionalData.potassium,
-            zinc: nutritionalData.zinc,
-            availability: nutritionalData.availability
-        )
     }
 }

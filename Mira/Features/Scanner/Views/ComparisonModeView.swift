@@ -319,11 +319,11 @@ private struct ComparisonTable: View {
 
             ComparisonRow(
                 label: "Sodium",
-                values: products.map { nutrientString($0.nutrition.sodium) },
+                values: products.map { sodiumString($0.nutrition.sodium) },
                 highlightedIndex: bestNutrientIndex(products, keyPath: \.sodium, higherIsBetter: false)
             )
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(nutrientAccessibilityLabel("Sodium", products: products, keyPath: \.sodium))
+            .accessibilityLabel(sodiumAccessibilityLabel(products))
 
             ComparisonRow(
                 label: "Calories",
@@ -360,6 +360,10 @@ private struct ComparisonTable: View {
         return String(format: "%.0f", value)
     }
 
+    private func sodiumString(_ grams: Double) -> String {
+        String(format: "%.0fmg", grams * 1_000)
+    }
+
     // MARK: - Accessibility Labels
 
     private func scoreAccessibilityLabel(_ products: [ProductModel]) -> String {
@@ -375,6 +379,13 @@ private struct ComparisonTable: View {
             return "Product \(index + 1): \(nutrientString(value))"
         }.joined(separator: ", ")
         return "\(nutrientName): \(values)"
+    }
+
+    private func sodiumAccessibilityLabel(_ products: [ProductModel]) -> String {
+        let values = products.enumerated().map { index, product in
+            "Product \(index + 1): \(sodiumString(product.nutrition.sodium))"
+        }.joined(separator: ", ")
+        return "Sodium: \(values)"
     }
 }
 
