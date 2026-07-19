@@ -109,8 +109,8 @@ final class ImageScannerViewModel: ObservableObject {
         recognitionGeneration = UUID()
         capturedImage = UIImage(systemName: "shippingbox.fill")
         identification = ProductIdentification(
-            name: "Mira Test Granola",
-            brand: "Mira Labs",
+            name: "Harvest Oat Crunch",
+            brand: "Mira Demo",
             category: "Breakfast",
             confidence: 0.94
         )
@@ -119,8 +119,8 @@ final class ImageScannerViewModel: ObservableObject {
             ProductMatch(
                 id: "ui-photo-granola",
                 barcode: "900000000001",
-                name: "UI Test Granola",
-                brand: "Mira Labs",
+                name: "Harvest Oat Crunch",
+                brand: "Mira Demo",
                 category: "Breakfast",
                 thumbnailURL: nil,
                 matchScore: 0.96
@@ -128,8 +128,8 @@ final class ImageScannerViewModel: ObservableObject {
             ProductMatch(
                 id: "ui-photo-yogurt",
                 barcode: "900000000002",
-                name: "UI Test Greek Yogurt",
-                brand: "Mira Labs",
+                name: "Plain Greek Yogurt",
+                brand: "Mira Demo",
                 category: "Dairy",
                 thumbnailURL: nil,
                 matchScore: 0.81

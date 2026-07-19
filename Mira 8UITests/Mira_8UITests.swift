@@ -35,7 +35,7 @@ final class MiraUITests: XCTestCase {
 
         XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 5))
 
-        let productName = app.staticTexts["UI Test Granola"]
+        let productName = app.staticTexts["Harvest Oat Crunch"]
         XCTAssertTrue(productName.waitForExistence(timeout: 5))
         productName.tap()
 
@@ -54,7 +54,7 @@ final class MiraUITests: XCTestCase {
         ])
 
         XCTAssertTrue(app.navigationBars["Shopping List"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -83,7 +83,7 @@ final class MiraUITests: XCTestCase {
         ])
 
         XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -118,11 +118,11 @@ final class MiraUITests: XCTestCase {
 
         let match = app.buttons["photoScan.singleMatch"]
         XCTAssertTrue(match.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["UI Test Granola"].exists)
+        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].exists)
         match.tap()
 
         XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -144,7 +144,7 @@ final class MiraUITests: XCTestCase {
         granolaMatch.tap()
 
         XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["UI Test Granola"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
     }
 
     @MainActor

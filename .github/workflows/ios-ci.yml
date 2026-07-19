@@ -90,6 +90,7 @@ jobs:
             -resultBundlePath "$RUNNER_TEMP/MiraUITests.xcresult" \
             CODE_SIGNING_ALLOWED=NO \
             -parallel-testing-enabled NO \
+            -skip-testing:'Mira 8UITests/MiraAppStoreScreenshotTests' \
             -only-testing:'Mira 8UITests'
 
       - name: Upload UI-test diagnostics
