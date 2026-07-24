@@ -8,6 +8,7 @@ struct AppLaunchConfiguration {
         static let resetState = "-reset-state"
         static let completeOnboarding = "-complete-onboarding"
         static let seedDemoData = "-seed-demo-data"
+        static let seedDemoDataLimit = "-seed-demo-data-limit"
         static let selectedTab = "-selected-tab"
         static let simulateCameraDenied = "-simulate-camera-denied"
         static let simulateCameraAvailable = "-simulate-camera-available"
@@ -30,6 +31,17 @@ struct AppLaunchConfiguration {
 
     var shouldSeedDemoData: Bool {
         arguments.contains(Argument.seedDemoData)
+    }
+
+    private var seedDemoDataLimit: Int? {
+        guard isUITesting,
+              let index = arguments.firstIndex(of: Argument.seedDemoDataLimit),
+              arguments.indices.contains(index + 1),
+              let limit = Int(arguments[index + 1]),
+              limit > 0 else {
+            return nil
+        }
+        return limit
     }
 
     var shouldSimulateCameraDenied: Bool {
@@ -209,7 +221,7 @@ struct AppLaunchConfiguration {
             )
         ]
 
-        for product in seededProducts {
+        for product in seededProducts.prefix(seedDemoDataLimit ?? seededProducts.count) {
             try? CoreDataManager.shared.saveProduct(product)
             try? CoreDataManager.shared.saveScanHistory(product: product, healthFocus: HealthFocus.generalWellness.rawValue)
         }

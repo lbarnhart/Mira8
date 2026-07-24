@@ -146,6 +146,8 @@ struct ProductDetailView: View {
                 }
             }
         }
+        .padding(.bottom, Size.tabBarHeight)
+        .clipped()
     }
 
     @ViewBuilder

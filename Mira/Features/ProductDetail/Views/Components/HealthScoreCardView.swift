@@ -55,7 +55,7 @@ struct HealthScoreCardView: View {
 
                             Text(plainReason(reason))
                                 .font(.subheadline)
-                                .foregroundColor(.textSecondary)
+                                .foregroundColor(.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }

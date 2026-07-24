@@ -7,24 +7,6 @@ enum ScoreGaugeStyle {
     case detailed
     case prominent
 
-    var showLabel: Bool {
-        switch self {
-        case .minimal:
-            return false
-        case .standard, .detailed, .prominent:
-            return true
-        }
-    }
-
-    var showPercentage: Bool {
-        switch self {
-        case .minimal, .standard:
-            return false
-        case .detailed, .prominent:
-            return true
-        }
-    }
-
     var lineWidth: (CGFloat) -> CGFloat {
         return { size in
             switch self {
@@ -40,16 +22,6 @@ enum ScoreGaugeStyle {
         }
     }
 
-    var backgroundOpacity: Double {
-        switch self {
-        case .minimal:
-            return 0.1
-        case .standard:
-            return 0.15
-        case .detailed, .prominent:
-            return 0.2
-        }
-    }
 }
 
 // MARK: - Animated Score Gauge
@@ -60,9 +32,9 @@ struct ScoreGauge: View {
     let showAnimation: Bool
     let animationDelay: Double
     let confidence: ScoreConfidence?
+    @ScaledMetric(relativeTo: .body) private var scaledSize: CGFloat = Size.scoreGaugeMD
 
     @State private var animatedScore: Double = 0
-    @State private var isAnimating = false
     @State private var showConfetti = false
 
     init(
@@ -79,6 +51,7 @@ struct ScoreGauge: View {
         self.showAnimation = showAnimation
         self.animationDelay = animationDelay
         self.confidence = confidence
+        self._scaledSize = ScaledMetric(wrappedValue: size, relativeTo: .body)
     }
 
     private var normalizedScore: Double {
@@ -98,11 +71,15 @@ struct ScoreGauge: View {
     }
 
     private var lineWidth: CGFloat {
-        style.lineWidth(size)
+        style.lineWidth(scaledSize)
     }
 
     private var backgroundStrokeColor: Color {
-        scoreColor.opacity(style.backgroundOpacity)
+        .textSubduedAccessible
+    }
+
+    private var backgroundLineWidth: CGFloat {
+        min(2, max(1, lineWidth * 0.4))
     }
 
     var body: some View {
@@ -111,23 +88,14 @@ struct ScoreGauge: View {
             Circle()
                 .stroke(
                     backgroundStrokeColor,
-                    lineWidth: lineWidth
+                    lineWidth: backgroundLineWidth
                 )
 
             // Progress circle with gradient
             Circle()
                 .trim(from: 0, to: progress)
                 .stroke(
-                    AngularGradient(
-                        gradient: Gradient(colors: [
-                            scoreColor.opacity(0.8),
-                            scoreColor,
-                            scoreColor.opacity(0.9)
-                        ]),
-                        center: .center,
-                        startAngle: .degrees(-90),
-                        endAngle: .degrees(270)
-                    ),
+                    scoreColor,
                     style: StrokeStyle(
                         lineWidth: lineWidth,
                         lineCap: .round
@@ -143,22 +111,6 @@ struct ScoreGauge: View {
                     .fontWeight(.bold)
                     .foregroundColor(scoreColor)
                     .contentTransition(.numericText())
-
-                // Label and percentage
-                if style.showLabel {
-                    VStack(spacing: 0) {
-                        Text("SCORE")
-                            .font(labelFont)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.textTertiary)
-
-                        if style.showPercentage {
-                            Text("\(Int(displayScore.rounded()))%")
-                                .font(.caption2)
-                                .foregroundColor(.textQuaternary)
-                        }
-                    }
-                }
             }
 
             // Glowing effect for prominent style
@@ -168,7 +120,7 @@ struct ScoreGauge: View {
                         scoreColor.opacity(0.3),
                         lineWidth: 1
                     )
-                    .frame(width: size + 12, height: size + 12)
+                    .frame(width: scaledSize + 12, height: scaledSize + 12)
                     .blur(radius: 2)
             }
 
@@ -179,7 +131,7 @@ struct ScoreGauge: View {
                     HStack {
                         Spacer()
                         confidenceBadge(for: confidence)
-                            .offset(x: size * 0.15, y: size * 0.15)
+                            .offset(x: scaledSize * 0.15, y: scaledSize * 0.15)
                     }
                 }
             }
@@ -187,11 +139,14 @@ struct ScoreGauge: View {
             // Confetti for excellent scores
             if showConfetti && normalizedScore >= 80 {
                 ConfettiView()
-                    .frame(width: size * 2, height: size * 2)
+                    .frame(width: scaledSize * 2, height: scaledSize * 2)
                     .allowsHitTesting(false)
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: scaledSize, height: scaledSize)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mira score")
+        .accessibilityValue("\(Int(normalizedScore.rounded())) out of 100")
         .onAppear {
             if showAnimation {
                 startAnimation()
@@ -211,24 +166,13 @@ struct ScoreGauge: View {
     private var scoreFont: Font {
         switch style {
         case .minimal:
-            return .system(size: size * 0.25, weight: .bold, design: .rounded)
+            return .system(.caption2, design: .rounded, weight: .bold)
         case .standard:
-            return .system(size: size * 0.3, weight: .bold, design: .rounded)
+            return .system(.title2, design: .rounded, weight: .bold)
         case .detailed:
-            return .system(size: size * 0.28, weight: .bold, design: .rounded)
+            return .system(.title, design: .rounded, weight: .bold)
         case .prominent:
-            return .system(size: size * 0.32, weight: .bold, design: .rounded)
-        }
-    }
-
-    private var labelFont: Font {
-        switch style {
-        case .minimal:
-            return .system(size: size * 0.08, weight: .medium)
-        case .standard:
-            return .system(size: size * 0.1, weight: .medium)
-        case .detailed, .prominent:
-            return .system(size: size * 0.09, weight: .medium)
+            return .system(.largeTitle, design: .rounded, weight: .bold)
         }
     }
 
@@ -261,7 +205,7 @@ struct ScoreGauge: View {
 
     @ViewBuilder
     private func confidenceBadge(for confidence: ScoreConfidence) -> some View {
-        let badgeSize = size * 0.22
+        let badgeSize = scaledSize * 0.22
         let (letter, color, bgColor) = confidenceBadgeStyle(for: confidence)
 
         ZStack {
@@ -274,7 +218,7 @@ struct ScoreGauge: View {
                 .frame(width: badgeSize, height: badgeSize)
 
             Text(letter)
-                .font(.system(size: badgeSize * 0.5, weight: .bold))
+                .font(.caption2.weight(.bold))
                 .foregroundColor(color)
         }
     }

@@ -4,6 +4,7 @@ import SwiftUI
 struct NutritionBreakdownView: View {
     let nutrition: ProductNutrition
     @State private var showFullLabel = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -12,13 +13,22 @@ struct NutritionBreakdownView: View {
 
             Text("Per \(nutrition.servingSize)")
                 .font(.caption)
-                .foregroundColor(.textSecondary)
+                .foregroundColor(.textSubduedAccessible)
 
-            HStack(spacing: Spacing.sm) {
-                summaryValue("Calories", value: "\(Int(nutrition.calories.rounded()))")
-                summaryValue("Protein", value: "\(format(nutrition.protein))g")
-                summaryValue("Sugar", value: "\(format(nutrition.sugar))g")
-                summaryValue("Sodium", value: "\(Int(nutrition.sodiumMilligrams.rounded()))mg")
+            if dynamicTypeSize.isAccessibilitySize {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: Spacing.sm),
+                        GridItem(.flexible(), spacing: Spacing.sm)
+                    ],
+                    spacing: Spacing.md
+                ) {
+                    nutritionSummary
+                }
+            } else {
+                HStack(spacing: Spacing.sm) {
+                    nutritionSummary
+                }
             }
 
             DisclosureGroup(isExpanded: $showFullLabel) {
@@ -51,17 +61,23 @@ struct NutritionBreakdownView: View {
             Text(value)
                 .font(.subheadline.weight(.semibold))
                 .foregroundColor(.textPrimary)
-                .minimumScaleFactor(0.75)
-                .lineLimit(1)
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.textSecondary)
+                .foregroundColor(.textSubduedAccessible)
         }
         .frame(maxWidth: .infinity)
     }
 
     private func format(_ value: Double) -> String {
         value.rounded() == value ? "\(Int(value))" : String(format: "%.1f", value)
+    }
+
+    @ViewBuilder
+    private var nutritionSummary: some View {
+        summaryValue("Calories", value: "\(Int(nutrition.calories.rounded()))")
+        summaryValue("Protein", value: "\(format(nutrition.protein))g")
+        summaryValue("Sugar", value: "\(format(nutrition.sugar))g")
+        summaryValue("Sodium", value: "\(Int(nutrition.sodiumMilligrams.rounded()))mg")
     }
 }
 
@@ -74,13 +90,13 @@ struct NutritionRow: View {
     var body: some View {
         HStack {
             Text(name)
-                .font(.bodyMedium)
+                .font(.body)
                 .foregroundColor(.textPrimary)
 
             Spacer()
 
             Text("\(String(format: "%.*f", precision, value))\(unit)")
-                .font(.bodyMedium.weight(.medium))
+                .font(.body.weight(.medium))
                 .foregroundColor(.textPrimary)
         }
     }

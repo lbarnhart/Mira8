@@ -76,7 +76,7 @@ struct IngredientsAnalysisView: View {
                     .padding(.top, Spacing.sm)
                 } label: {
                     Text(showAllIngredients ? "Hide all ingredients" : "Show all \(totalCount) ingredients")
-                        .font(.bodyMedium)
+                        .font(.body)
                         .foregroundColor(.primaryBlue)
                 }
                 .padding(.horizontal, Spacing.md)
@@ -91,7 +91,7 @@ struct IngredientsAnalysisView: View {
                         .padding(.top, Spacing.xs)
                 } label: {
                     Text(showRawText ? "Hide full ingredient list" : "Full ingredient list")
-                        .font(.bodyMedium)
+                        .font(.body)
                         .foregroundColor(.primaryBlue)
                 }
                 .padding(.horizontal, Spacing.md)
@@ -168,7 +168,7 @@ private struct IngredientSummaryCard: View {
 
             Text("\(totalCount) total ingredients")
                 .font(.caption)
-                .foregroundColor(.textSecondary)
+                .foregroundColor(.textPrimary)
 
             HStack(spacing: Spacing.lg) {
                 summaryItem(icon: "checkmark.circle.fill", color: IngredientCategory.beneficial.accentColor, value: beneficialCount, label: "Beneficial")
@@ -183,7 +183,7 @@ private struct IngredientSummaryCard: View {
                             .foregroundColor(IngredientCategory.concerning.accentColor)
                         Text(String(format: "%.0f%% concerning ingredients", concerningPercentage))
                             .font(.caption)
-                            .foregroundColor(.textSecondary)
+                            .foregroundColor(.textPrimary)
                     }
 
                     ProgressView(value: Double(concerningCount), total: Double(totalCount))
@@ -208,7 +208,7 @@ private struct IngredientSummaryCard: View {
                     .foregroundColor(.textPrimary)
                 Text(label)
                     .font(.caption)
-                    .foregroundColor(.textSecondary)
+                    .foregroundColor(.textPrimary)
             }
         }
     }
