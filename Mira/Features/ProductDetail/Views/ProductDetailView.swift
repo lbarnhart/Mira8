@@ -3,12 +3,19 @@ import UIKit
 import CoreData
 
 struct ProductDetailView: View {
+    private enum PresentedSheet: String, Identifiable {
+        case firstScanEducation
+        case scoreComparison
+        case scoreExplanation
+
+        var id: String { rawValue }
+    }
+
     let barcode: String
     @StateObject private var viewModel = ProductDetailViewModel()
     @EnvironmentObject private var appState: AppState
     @State private var isFavorite = false
-    @State private var showFirstScanEducation = false
-    @State private var showScoreComparison = false
+    @State private var presentedSheet: PresentedSheet?
     @StateObject private var shoppingListViewModel = ShoppingListViewModel()
     @State private var showAddedToListConfirmation = false
 
@@ -87,11 +94,15 @@ struct ProductDetailView: View {
         } message: {
             Text(viewModel.loading.errorMessage ?? "Unknown error occurred")
         }
-        .sheet(isPresented: $showFirstScanEducation) {
-            firstScanEducationSheet
-        }
-        .sheet(isPresented: $showScoreComparison) {
-            scoreComparisonSheet
+        .sheet(item: $presentedSheet) { sheet in
+            switch sheet {
+            case .firstScanEducation:
+                firstScanEducationSheet
+            case .scoreComparison:
+                scoreComparisonSheet
+            case .scoreExplanation:
+                scoreExplanationSheet
+            }
         }
         .onChange(of: viewModel.productData.healthScore?.overall) { score in
             // Show first scan education if this is the first time
@@ -101,11 +112,13 @@ struct ProductDetailView: View {
             if !hasSeenFirstScanEducation, score != nil {
                 // Small delay to let the view settle
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    showFirstScanEducation = true
-                    UserDefaults.standard.set(
-                        true,
-                        forKey: Constants.UserDefaults.hasSeenFirstScanEducation
-                    )
+                    if presentedSheet == nil {
+                        presentedSheet = .firstScanEducation
+                        UserDefaults.standard.set(
+                            true,
+                            forKey: Constants.UserDefaults.hasSeenFirstScanEducation
+                        )
+                    }
                 }
             }
         }
@@ -161,14 +174,17 @@ struct ProductDetailView: View {
             if let healthScore = viewModel.productData.healthScore {
                 HealthScoreCardView(
                     healthScore: healthScore,
-                    healthFocus: HealthFocus(fromStored: appState.healthFocus)
+                    productName: product.name,
+                    dataSource: product.dataSource,
+                    healthFocus: HealthFocus(fromStored: appState.healthFocus),
+                    onShowExplanation: {
+                        presentedSheet = .scoreExplanation
+                    }
                 )
-
-                focusSnapshotCard(healthScore)
 
                 // Compare Focuses button
                 Button {
-                    showScoreComparison = true
+                    presentedSheet = .scoreComparison
                 } label: {
                     HStack {
                         Image(systemName: "slider.horizontal.3")
@@ -197,19 +213,6 @@ struct ProductDetailView: View {
             // Nutrition Breakdown
             NutritionBreakdownView(nutrition: product.nutrition)
 
-            // Score Breakdown Section
-            if let healthScore = viewModel.productData.healthScore {
-                ScoreBreakdownView(
-                    healthScore: healthScore,
-                    healthFocus: HealthFocus(fromStored: appState.healthFocus)
-                )
-            }
-
-            // Score Adjustments Section
-            if let healthScore = viewModel.productData.healthScore, !healthScore.adjustments.isEmpty {
-                ScoreAdjustmentsView(adjustments: healthScore.adjustments)
-            }
-
             // Ingredients section (progressive disclosure)
             IngredientsAnalysisView(
                 items: viewModel.productData.ingredientItems,
@@ -237,58 +240,6 @@ struct ProductDetailView: View {
         .padding()
     }
 
-    @ViewBuilder
-    private func focusSnapshotCard(_ healthScore: HealthScore) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(alignment: .top, spacing: Spacing.sm) {
-                Image(systemName: healthScore.verdict.systemIcon)
-                    .foregroundColor(Color.scoreColor(for: healthScore.overall))
-                    .font(.headline)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(healthScore.verdict.message)
-                        .font(.headline)
-                        .foregroundColor(.textPrimary)
-
-                    Text("Quick take for \(HealthFocus(fromStored: appState.healthFocus).displayName.lowercased())")
-                        .font(.subheadline)
-                        .foregroundColor(.textSecondary)
-                }
-
-                Spacer()
-            }
-
-            if !healthScore.topReasons.isEmpty {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    ForEach(Array(healthScore.topReasons.prefix(2)), id: \.self) { reason in
-                        HStack(alignment: .top, spacing: Spacing.xs) {
-                            Circle()
-                                .fill(Color.scoreColor(for: healthScore.overall))
-                                .frame(width: 6, height: 6)
-                                .padding(.top, 6)
-
-                            Text(reason)
-                                .font(.subheadline)
-                                .foregroundColor(.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                }
-            }
-
-            if !viewModel.alternatives.items.isEmpty {
-                Text("\(viewModel.alternatives.items.count) stronger alternatives found below.")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(.primaryBlue)
-            }
-        }
-        .padding(Spacing.md)
-        .background(Color.backgroundSecondary)
-        .cornerRadius(CornerRadius.card)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("productDetail.focusSnapshot")
-    }
-
     // MARK: - Sheet Content
 
     @ViewBuilder
@@ -309,6 +260,19 @@ struct ProductDetailView: View {
             ScoreComparisonSheet(
                 product: product,
                 currentFocus: HealthFocus(fromStored: appState.healthFocus)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var scoreExplanationSheet: some View {
+        if let product = viewModel.productData.product,
+           let healthScore = viewModel.productData.healthScore {
+            WhyThisScoreView(
+                healthScore: healthScore,
+                productName: product.name,
+                healthFocus: HealthFocus(fromStored: appState.healthFocus),
+                dataSource: product.dataSource
             )
         }
     }

@@ -1,109 +1,139 @@
+import Foundation
 import SwiftUI
 
-/// Displays the health score with gauge, focus pill, component breakdown, and explanation
+/// A calm, decision-first score summary. Detailed evidence remains available
+/// through the explanation sheet without competing with the shopping decision.
 struct HealthScoreCardView: View {
     let healthScore: HealthScore
+    let productName: String
+    let dataSource: ProductSource?
     var healthFocus: HealthFocus = .generalWellness
+    let onShowExplanation: () -> Void
 
     var body: some View {
-        VStack(spacing: Spacing.md) {
-            // Title
-            HStack {
-                Text("Health Score")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                ScoreGauge(
+                    score: healthScore.overall,
+                    size: 96,
+                    confidence: nil
+                )
 
-            HStack(alignment: .top, spacing: Spacing.lg) {
-                // Left column: Overall score (just gauge and focus pill)
-                VStack(spacing: Spacing.sm) {
-                    // Score gauge (score shown inside donut) with confidence badge
-                    ScoreGauge(
-                        score: healthScore.overall,
-                        size: 100,
-                        confidence: healthScore.confidence
-                    )
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(healthScore.verdict.label)
+                        .font(.title3.weight(.bold))
+                        .foregroundColor(scoreColor)
 
-                    // Focus pill
+                    Text(healthScore.verdict.message)
+                        .font(.subheadline)
+                        .foregroundColor(.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     Text(healthFocus.displayName)
-                        .font(.caption)
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.primaryBlue)
                         .padding(.horizontal, Spacing.sm)
                         .padding(.vertical, Spacing.xxs)
-                        .background(Color.primaryBlue.opacity(0.12))
-                        .foregroundColor(.primaryBlue)
+                        .background(Color.primaryBlue.opacity(0.1))
                         .cornerRadius(CornerRadius.pill)
                 }
 
-                // Right side: Component scores grid (no weight badges)
-                VStack(spacing: Spacing.sm) {
-                    // Get top 4 components to display
-                    let topComponents = Array(healthScore.breakdown.prefix(4))
+                Spacer(minLength: 0)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("productDetail.focusSnapshot")
 
-                    ForEach(topComponents, id: \.componentName) { component in
-                        ComponentScoreRow(component: component)
+            if !healthScore.topReasons.isEmpty {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    ForEach(Array(healthScore.topReasons.prefix(2)), id: \.self) { reason in
+                        HStack(alignment: .top, spacing: Spacing.xs) {
+                            Image(systemName: reasonIcon(for: reason))
+                                .font(.caption)
+                                .foregroundColor(reasonColor(for: reason))
+                                .frame(width: 16)
+                                .padding(.top, 2)
+
+                            Text(plainReason(reason))
+                                .font(.subheadline)
+                                .foregroundColor(.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity)
             }
 
-            // Bottom section - spans full width
-            VStack(spacing: Spacing.sm) {
-                // Microcopy hints
-                if let bestArea = healthScore.breakdown.max(by: { $0.rawScore < $1.rawScore }),
-                   let weakArea = healthScore.breakdown.min(by: { $0.rawScore < $1.rawScore }) {
-                    VStack(alignment: .leading, spacing: Spacing.xxs) {
-                        if bestArea.rawScore >= 70 {
-                            Text("Best area: \(bestArea.componentName)")
-                                .font(.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                        if weakArea.rawScore < 70 {
-                            Text("Needs attention: \(weakArea.componentName)")
-                                .font(.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
+            if healthScore.confidence != .high {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: sourceIcon)
+                        .accessibilityHidden(true)
 
-                // Narrative copy in disclosure group
-                DisclosureGroup("Why this matters") {
-                    Text(healthScore.explanation)
-                        .font(.caption)
-                        .foregroundColor(.textSecondary)
-                        .padding(.top, Spacing.xs)
+                    Text(sourceSummary)
+                    Text("·")
+                    Text(healthScore.confidence.displayName)
                 }
                 .font(.caption)
-                .foregroundColor(.textPrimary)
+                .foregroundColor(healthScore.confidence == .low ? .scoreFair : .textSecondary)
+                .accessibilityElement(children: .combine)
             }
+
+            Button {
+                onShowExplanation()
+            } label: {
+                HStack {
+                    Text("Why this score?")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.primaryBlue)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("productDetail.scoreExplanation")
         }
-        .padding()
+        .padding(Spacing.md)
         .background(Color.backgroundSecondary)
         .cornerRadius(CornerRadius.card)
     }
-}
 
-/// Component score row for the right-side grid (no weight badge)
-struct ComponentScoreRow: View {
-    let component: ComponentBreakdown
+    private var scoreColor: Color {
+        Color.scoreColor(for: healthScore.overall)
+    }
 
-    var body: some View {
-        HStack(spacing: Spacing.xs) {
-            // Label
-            Text(component.componentName)
-                .font(.caption)
-                .foregroundColor(.textSecondary)
-                .lineLimit(1)
+    private var sourceIcon: String {
+        healthScore.confidence == .low ? "exclamationmark.triangle" : "checkmark.shield"
+    }
 
-            Spacer()
-
-            // Score value (color-coded)
-            Text("\(Int(component.rawScore))")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(Color.scoreColor(for: component.rawScore))
+    private var sourceSummary: String {
+        guard let dataSource else {
+            return "Source details unavailable"
         }
-        .padding(.vertical, Spacing.xxs)
+        return "Data from \(dataSource.displayName)"
+    }
+
+    private func plainReason(_ reason: String) -> String {
+        let withoutPoints = reason.replacingOccurrences(
+            of: #"\s*\([+\-−]\d+(?:\.\d+)?\)\s*$"#,
+            with: "",
+            options: .regularExpression
+        )
+
+        if withoutPoints.hasPrefix("Boost: ") {
+            return String(withoutPoints.dropFirst("Boost: ".count)) + " helps"
+        }
+        if withoutPoints.hasPrefix("Penalty: ") {
+            return String(withoutPoints.dropFirst("Penalty: ".count)) + " lowers the score"
+        }
+        return withoutPoints
+    }
+
+    private func reasonIcon(for reason: String) -> String {
+        reason.hasPrefix("Penalty: ") ? "minus.circle.fill" : "plus.circle.fill"
+    }
+
+    private func reasonColor(for reason: String) -> Color {
+        reason.hasPrefix("Penalty: ") ? .scorePoor : .scoreExcellent
     }
 }

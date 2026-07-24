@@ -42,6 +42,12 @@ final class MiraUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 5))
         let focusSnapshot = app.descendants(matching: .any)["productDetail.focusSnapshot"]
         XCTAssertTrue(focusSnapshot.waitForExistence(timeout: 5))
+        let scoreExplanation = app.buttons["productDetail.scoreExplanation"]
+        XCTAssertTrue(scoreExplanation.waitForExistence(timeout: 2))
+        scoreExplanation.tap()
+        XCTAssertTrue(app.navigationBars["How Mira Scored This"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["scoreExplanation.componentSummary"].exists)
+        app.buttons["Done"].tap()
         XCTAssertTrue(app.buttons["productDetail.compareFocuses"].waitForExistence(timeout: 2))
     }
 
@@ -81,67 +87,6 @@ final class MiraUITests: XCTestCase {
             "-selected-tab", "scan",
             "-simulate-scanned-barcode", "900000000001"
         ])
-
-        XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
-    }
-
-    @MainActor
-    func testPhotoScanEntryOffersCameraAndPhotoLibrary() throws {
-        let app = launchApp(arguments: [
-            "-reset-state",
-            "-complete-onboarding",
-            "-selected-tab", "scan",
-            "-simulate-camera-available"
-        ])
-
-        XCTAssertTrue(app.buttons["scanner.photoMode"].waitForExistence(timeout: 5))
-        app.buttons["scanner.photoMode"].tap()
-
-        XCTAssertTrue(app.navigationBars["Photo Scan"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["photoScan.camera"].exists)
-        XCTAssertTrue(app.buttons["photoScan.photos"].exists)
-    }
-
-    @MainActor
-    func testPhotoScanSingleMatchOpensProductDetailAfterConfirmation() throws {
-        let app = launchApp(arguments: [
-            "-reset-state",
-            "-seed-demo-data",
-            "-selected-tab", "scan",
-            "-simulate-camera-available",
-            "-simulate-photo-result", "single"
-        ])
-
-        XCTAssertTrue(app.buttons["scanner.photoMode"].waitForExistence(timeout: 5))
-        app.buttons["scanner.photoMode"].tap()
-
-        let match = app.buttons["photoScan.singleMatch"]
-        XCTAssertTrue(match.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].exists)
-        match.tap()
-
-        XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))
-    }
-
-    @MainActor
-    func testPhotoScanDisambiguationSelectsProductAndOpensDetail() throws {
-        let app = launchApp(arguments: [
-            "-reset-state",
-            "-seed-demo-data",
-            "-selected-tab", "scan",
-            "-simulate-camera-available",
-            "-simulate-photo-result", "multiple"
-        ])
-
-        XCTAssertTrue(app.buttons["scanner.photoMode"].waitForExistence(timeout: 5))
-        app.buttons["scanner.photoMode"].tap()
-
-        XCTAssertTrue(app.navigationBars["Select Product"].waitForExistence(timeout: 5))
-        let granolaMatch = app.buttons["photoScan.match.900000000001"]
-        XCTAssertTrue(granolaMatch.waitForExistence(timeout: 3))
-        granolaMatch.tap()
 
         XCTAssertTrue(app.navigationBars["Product Details"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.staticTexts["Harvest Oat Crunch"].waitForExistence(timeout: 5))

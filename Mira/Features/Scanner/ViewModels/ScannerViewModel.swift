@@ -2,26 +2,6 @@ import Foundation
 import UIKit
 @preconcurrency import AVFoundation
 
-/// Scanning mode for the scanner view
-enum ScanMode: String, CaseIterable {
-    case barcode
-    case image
-
-    var displayName: String {
-        switch self {
-        case .barcode: return "Barcode"
-        case .image: return "Photo"
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .barcode: return "barcode.viewfinder"
-        case .image: return "camera.viewfinder"
-        }
-    }
-}
-
 @MainActor
 final class ScannerViewModel: NSObject, ObservableObject {
     @Published var hasPermission = false
@@ -33,12 +13,6 @@ final class ScannerViewModel: NSObject, ObservableObject {
     @Published var scannedProduct: ProductModel?
     @Published private(set) var captureSession: AVCaptureSession?
     @Published private(set) var isCameraSetup = false
-
-    /// Current scanning mode (barcode or image recognition)
-    @Published var scanMode: ScanMode = .barcode
-
-    /// Whether to show the image scanner sheet
-    @Published var showImageScanner = false
 
     /// Whether to show the duplicate scan sheet
     @Published var showDuplicateScan = false

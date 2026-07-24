@@ -1,42 +1,70 @@
 import SwiftUI
 
-/// Displays nutrition facts in a card layout
+/// A quick nutrition snapshot with the full label available on demand.
 struct NutritionBreakdownView: View {
     let nutrition: ProductNutrition
+    @State private var showFullLabel = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Nutrition Facts")
-                .font(.title3)
-                .fontWeight(.semibold)
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("Nutrition")
+                .font(.title3.weight(.semibold))
 
-            HStack {
-                Text("Serving Size:")
-                    .font(.caption)
-                    .foregroundColor(.textSecondary)
-                Text(nutrition.servingSize)
-                    .font(.caption)
-                    .foregroundColor(.textPrimary)
+            Text("Per \(nutrition.servingSize)")
+                .font(.caption)
+                .foregroundColor(.textSecondary)
+
+            HStack(spacing: Spacing.sm) {
+                summaryValue("Calories", value: "\(Int(nutrition.calories.rounded()))")
+                summaryValue("Protein", value: "\(format(nutrition.protein))g")
+                summaryValue("Sugar", value: "\(format(nutrition.sugar))g")
+                summaryValue("Sodium", value: "\(Int(nutrition.sodiumMilligrams.rounded()))mg")
             }
 
-            VStack(spacing: 8) {
-                NutritionRow(name: "Calories", value: nutrition.calories, unit: "")
-                NutritionRow(name: "Protein", value: nutrition.protein, unit: "g")
-                NutritionRow(name: "Carbohydrates", value: nutrition.carbohydrates, unit: "g")
-                NutritionRow(name: "Fat", value: nutrition.fat, unit: "g")
-                NutritionRow(name: "Fiber", value: nutrition.fiber, unit: "g")
-                NutritionRow(name: "Sugar", value: nutrition.sugar, unit: "g")
-                NutritionRow(name: "Sodium", value: nutrition.sodiumMilligrams, unit: "mg")
-                NutritionRow(name: "Cholesterol", value: nutrition.cholesterol * 1000, unit: "mg", precision: 0)
+            DisclosureGroup(isExpanded: $showFullLabel) {
+                VStack(spacing: Spacing.sm) {
+                    NutritionRow(name: "Calories", value: nutrition.calories, unit: "")
+                    NutritionRow(name: "Protein", value: nutrition.protein, unit: "g")
+                    NutritionRow(name: "Carbohydrates", value: nutrition.carbohydrates, unit: "g")
+                    NutritionRow(name: "Fat", value: nutrition.fat, unit: "g")
+                    NutritionRow(name: "Saturated Fat", value: nutrition.saturatedFat, unit: "g")
+                    NutritionRow(name: "Fiber", value: nutrition.fiber, unit: "g")
+                    NutritionRow(name: "Sugar", value: nutrition.sugar, unit: "g")
+                    NutritionRow(name: "Sodium", value: nutrition.sodiumMilligrams, unit: "mg", precision: 0)
+                    NutritionRow(name: "Cholesterol", value: nutrition.cholesterol * 1_000, unit: "mg", precision: 0)
+                }
+                .padding(.top, Spacing.md)
+            } label: {
+                Text(showFullLabel ? "Hide full nutrition facts" : "Full nutrition facts")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.primaryBlue)
             }
+            .accessibilityIdentifier("productDetail.fullNutrition")
         }
-        .padding()
+        .padding(Spacing.md)
         .background(Color.backgroundSecondary)
-        .cornerRadius(12)
+        .cornerRadius(CornerRadius.card)
+    }
+
+    private func summaryValue(_ label: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.textPrimary)
+                .minimumScaleFactor(0.75)
+                .lineLimit(1)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func format(_ value: Double) -> String {
+        value.rounded() == value ? "\(Int(value))" : String(format: "%.1f", value)
     }
 }
 
-/// Single row in nutrition facts
 struct NutritionRow: View {
     let name: String
     let value: Double
@@ -44,8 +72,6 @@ struct NutritionRow: View {
     var precision: Int = 1
 
     var body: some View {
-        let formattedValue = String(format: "%.*f", precision, value)
-
         HStack {
             Text(name)
                 .font(.bodyMedium)
@@ -53,27 +79,9 @@ struct NutritionRow: View {
 
             Spacer()
 
-            Text("\(formattedValue)\(unit)")
-                .font(.bodyMedium)
-                .fontWeight(.medium)
+            Text("\(String(format: "%.*f", precision, value))\(unit)")
+                .font(.bodyMedium.weight(.medium))
                 .foregroundColor(.textPrimary)
         }
     }
-}
-
-#Preview {
-    NutritionBreakdownView(
-        nutrition: ProductNutrition(
-            calories: 150,
-            protein: 5,
-            carbohydrates: 25,
-            fat: 4,
-            fiber: 3,
-            sugar: 12,
-            sodium: 0.15,
-            cholesterol: 0.01,
-            servingSize: "100g"
-        )
-    )
-    .padding()
 }

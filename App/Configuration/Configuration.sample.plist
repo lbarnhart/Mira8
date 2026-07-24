@@ -12,6 +12,8 @@
 	<string>https://lbarnhart.github.io/Mira8/terms/</string>
 	<key>HelpCenterURL</key>
 	<string>https://lbarnhart.github.io/Mira8/support/</string>
+	<key>MethodologyURL</key>
+	<string>https://lbarnhart.github.io/Mira8/methodology/</string>
 	<key>SupportEmail</key>
 	<string>barnhartl91@gmail.com</string>
 </dict>

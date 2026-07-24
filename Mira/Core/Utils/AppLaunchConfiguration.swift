@@ -1,12 +1,5 @@
 import Foundation
 
-enum PhotoScanSimulationScenario: String, Equatable {
-    case singleMatch = "single"
-    case multipleMatches = "multiple"
-    case noMatches = "none"
-    case error
-}
-
 struct AppLaunchConfiguration {
     static let current = AppLaunchConfiguration(arguments: ProcessInfo.processInfo.arguments)
 
@@ -19,7 +12,6 @@ struct AppLaunchConfiguration {
         static let simulateCameraDenied = "-simulate-camera-denied"
         static let simulateCameraAvailable = "-simulate-camera-available"
         static let simulateScannedBarcode = "-simulate-scanned-barcode"
-        static let simulatePhotoResult = "-simulate-photo-result"
     }
 
     let arguments: [String]
@@ -57,16 +49,6 @@ struct AppLaunchConfiguration {
 
         let barcode = arguments[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
         return barcode.isEmpty ? nil : barcode
-    }
-
-    var simulatedPhotoScanScenario: PhotoScanSimulationScenario? {
-        guard isUITesting,
-              let index = arguments.firstIndex(of: Argument.simulatePhotoResult),
-              arguments.indices.contains(index + 1) else {
-            return nil
-        }
-
-        return PhotoScanSimulationScenario(rawValue: arguments[index + 1].lowercased())
     }
 
     var initialTab: Tab? {
@@ -162,7 +144,8 @@ struct AppLaunchConfiguration {
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now,
-                nutriScore: "A"
+                nutriScore: "A",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-yogurt-1",
@@ -176,7 +159,8 @@ struct AppLaunchConfiguration {
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-86_400),
-                nutriScore: "A"
+                nutriScore: "A",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-soup-1",
@@ -190,7 +174,8 @@ struct AppLaunchConfiguration {
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-172_800),
-                nutriScore: "B"
+                nutriScore: "B",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-crackers-1",
@@ -204,7 +189,8 @@ struct AppLaunchConfiguration {
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-259_200),
-                nutriScore: "B"
+                nutriScore: "B",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-bar-1",
@@ -218,7 +204,8 @@ struct AppLaunchConfiguration {
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-345_600),
-                nutriScore: "B"
+                nutriScore: "B",
+                dataSource: .manual
             )
         ]
 

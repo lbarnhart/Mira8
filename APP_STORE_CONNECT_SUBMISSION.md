@@ -1,6 +1,6 @@
 # App Store Connect Submission Guide
 
-Prepared for Mira 1.0 (build 1), bundle ID `com.mira8.app`, from commit `62ccb4c6275db7330da6d0f7a39c0df5d9f85a55`.
+Prepared for Mira 1.0 (build 1), bundle ID `com.mira8.app`. Record the final commit and regenerated artifact below after the current barcode-only release candidate passes validation.
 
 This guide records recommended answers based on the reviewed Release binary and source. Recheck it if the app's services, business model, or data practices change.
 
@@ -15,13 +15,15 @@ This guide records recommended answers based on the reviewed Release binary and 
 - Terms of use: <https://lbarnhart.github.io/Mira8/terms/>
 - Support URL: <https://lbarnhart.github.io/Mira8/support/>
 - Marketing URL: <https://lbarnhart.github.io/Mira8/>
+- Scoring methodology: <https://lbarnhart.github.io/Mira8/methodology/>
 - Support email: **barnhartl91@gmail.com**
 - Copyright: **2026 Lauren Barnhart**
 
-Use the signed artifact whose SHA-256 is recorded below. Do not submit an earlier build.
+Do not upload the previous v1.2 artifact; it predates removal of photo scanning and the revised score explanation. Fill these fields from the regenerated, audited release candidate:
 
-- IPA: `Mira8-1.0-1-AppStore-v1.2.ipa`
-- SHA-256: `13348c08235725fa94338cca7a96d0dcf0673a793ada8ab8ee1a5a6fccde4910`
+- Commit: **Pending**
+- IPA: **Pending**
+- SHA-256: **Pending**
 - Scoring contract: `health-scoring-v1.2.0`
 
 ## App Privacy
@@ -33,7 +35,7 @@ Recommended conservative disclosure:
   - Purpose: **App Functionality**.
   - Linked to the user's identity: **No**.
   - Used for tracking: **No**.
-- Do not declare photos, camera data, health-profile preferences, scan history, favorites, shopping-list data, diagnostics, or identifiers as collected by Mira. These remain on-device in the reviewed Release build.
+- Do not declare camera data, health-profile preferences, scan history, favorites, shopping-list data, diagnostics, or identifiers as collected by Mira. These remain on-device in the reviewed Release build.
 
 Why this is conservative: searches and scans send a barcode, product name, brand, or search terms to Open Food Facts and/or USDA FoodData Central. Those providers also receive ordinary network metadata. Apple defines Search History as searches performed in an app and requires third-party partner practices to be included. The public privacy policy already describes these requests.
 
@@ -46,7 +48,7 @@ Not present in the reviewed Release build:
 - Cross-app tracking
 - Analytics or crash-reporting SDKs
 - Purchases or subscriptions
-- Off-device photo or OCR processing
+- Photo-library access or image recognition
 - A configured Claude/Anthropic credential or production AI request path
 
 ## Age Rating
@@ -89,7 +91,7 @@ Keep source attribution visible and preserve any license notices required by the
 
 Suggested App Review note:
 
-> Mira is a food-information app with no account or paywall. Live barcode scanning requires camera permission and a physical device. Search can be used without camera access. Photo-label recognition runs on-device in this App Store build. Product data comes from Open Food Facts, USDA FoodData Central, or the bundled offline catalog. Mira provides general nutrition information, not medical advice. Settings includes Clear Scan History and Reset All App Data.
+> Mira is a food-information app with no account or paywall. Live barcode scanning requires camera permission and a physical device. Search can be used without camera access. Product data comes from Open Food Facts, USDA FoodData Central, or the bundled offline catalog. Mira provides general nutrition information, not medical advice. Settings includes Clear Scan History and Reset All App Data.
 
 ## Availability and Release
 
@@ -116,8 +118,7 @@ These cannot be truthfully completed from the codebase:
 1. Complete physical-iPhone Release QA and record the device/iOS version and result.
 2. Resolve the iPad physical-device test or risk-acceptance decision.
 3. Enter the privacy, age-rating, export-compliance, content-rights, and DSA answers.
-4. Upload the signed v1.2 build and wait for processing.
+4. Upload the regenerated signed build and wait for processing.
 5. Attach the five iPhone 6.9-inch and five iPad 13-inch screenshots.
 6. Add the App Review contact phone number and review note.
 7. Select build 1, verify metadata and URLs, then submit for review.
-

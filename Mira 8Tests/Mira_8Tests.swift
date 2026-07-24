@@ -319,15 +319,13 @@ import Testing
             "-ui-testing",
             "-selected-tab", "scan",
             "-simulate-camera-available",
-            "-simulate-scanned-barcode", " 900000000001 ",
-            "-simulate-photo-result", "multiple"
+            "-simulate-scanned-barcode", " 900000000001 "
         ])
 
         #expect(configuration.initialTab == .scan)
         #expect(configuration.shouldSimulateCameraAvailable)
         #expect(!configuration.shouldSimulateCameraDenied)
         #expect(configuration.simulatedScannedBarcode == "900000000001")
-        #expect(configuration.simulatedPhotoScanScenario == .multipleMatches)
     }
 
     @Test func offlineCatalogRejectsImpossibleNutritionAndMigratesLegacySodium() {

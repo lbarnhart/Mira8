@@ -12,14 +12,10 @@ struct ScannerContentView: View {
     @State private var isFilterModeEnabled: Bool
     @State private var showNonCompliantAlert = false
     @State private var currentViolations: [DietaryAnalysisResult] = []
-    @State private var showImageScanner = false
-    @State private var showPhotoCamera = false
-    @State private var scannedBarcodeFromImage: String?
     @State private var showComparisonMode = false
     @State private var isComparisonModeActive = false
     @State private var showSettings = false
     @StateObject private var comparisonViewModel = ComparisonModeViewModel()
-    @StateObject private var imageScannerViewModel = ImageScannerViewModel()
 
     let onScanComplete: (ScanResult) -> Void
 
@@ -64,14 +60,11 @@ struct ScannerContentView: View {
         }
         .sheet(isPresented: $showProductDetail, onDismiss: {
             viewModel.resetScanner()
-            scannedBarcodeFromImage = nil
-            imageScannerViewModel.reset()
         }) {
             productDetailSheet
         }
         .sheet(isPresented: $viewModel.showDuplicateScan, onDismiss: {
             viewModel.resetScanner()
-            imageScannerViewModel.reset()
         }) {
             if let product = viewModel.scannedProduct,
                let previousDate = viewModel.previousScanDate {
@@ -100,7 +93,6 @@ struct ScannerContentView: View {
         }
         .sheet(isPresented: $showNonCompliantAlert, onDismiss: {
             viewModel.resetScanner()
-            imageScannerViewModel.reset()
         }) {
             if let product = viewModel.scannedProduct {
                 NonCompliantProductSheet(
@@ -126,93 +118,6 @@ struct ScannerContentView: View {
                 checkAndShowInsightsUnlocked()
             }
         }
-        .sheet(isPresented: $showImageScanner) {
-            ImageScannerView(
-                viewModel: imageScannerViewModel,
-                onProductSelected: { barcode in
-                    scannedBarcodeFromImage = barcode
-                    showImageScanner = false
-                },
-                onDismiss: {
-                    showImageScanner = false
-                }
-            )
-        }
-        .onChange(of: showImageScanner) { isPresented in
-            // Present the detail only after the photo-scanner sheet is fully gone.
-            // Driving this from the binding transition avoids a race between two
-            // sheet presentations on the same host view.
-            guard !isPresented, scannedBarcodeFromImage != nil else { return }
-            DispatchQueue.main.async {
-                showProductDetail = true
-            }
-        }
-        .fullScreenCover(isPresented: $showPhotoCamera, onDismiss: {
-            // Restart barcode scanner when returning from photo mode
-            if viewModel.hasPermission {
-                viewModel.startScanning()
-            }
-        }) {
-            CameraView(
-                onCapture: { image in
-                    showPhotoCamera = false
-                    // Reset state before processing new image
-                    imageScannerViewModel.reset()
-                    // Process the image automatically
-                    Task {
-                        await imageScannerViewModel.processImage(image)
-                    }
-                },
-                onCancel: {
-                    showPhotoCamera = false
-                    imageScannerViewModel.reset()
-                }
-            )
-            .overlay(alignment: .topTrailing) {
-                // Photo library button
-                Button {
-                    showPhotoCamera = false
-                    // Small delay before showing image scanner
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        showImageScanner = true
-                    }
-                } label: {
-                    Image(systemName: "photo.on.rectangle")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(12)
-                        .background(Color.black.opacity(0.5))
-                        .clipShape(Circle())
-                }
-                .accessibilityLabel("Choose a product photo from the library")
-                .accessibilityIdentifier("photoCamera.library")
-                .padding(.trailing, 16)
-                .padding(.top, 16)
-            }
-        }
-        .onChange(of: imageScannerViewModel.state) { newState in
-            // When recognition completes with a match, set the barcode
-            if case .matched(let matches) = newState, let match = matches.first {
-                if matches.count == 1 {
-                    if !showImageScanner {
-                        // Camera capture is already dismissed, so detail can be presented directly.
-                        // When the photo-library sheet is open, its result card owns confirmation
-                        // and dismisses itself before presenting product detail.
-                        scannedBarcodeFromImage = match.barcode
-                        showProductDetail = true
-                    }
-                } else {
-                    // Multiple matches - need to show disambiguation
-                    showImageScanner = true
-                }
-            } else if case .noMatches = newState {
-                // No matches found - show the image scanner with error state
-                showImageScanner = true
-            } else if case .error = newState {
-                // Error occurred - show the image scanner with error state
-                showImageScanner = true
-            }
-        }
         .sheet(isPresented: $showComparisonMode) {
             ComparisonModeView(appState: appState, viewModel: comparisonViewModel)
                 .onDisappear {
@@ -224,12 +129,6 @@ struct ScannerContentView: View {
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
-        }
-        .fullScreenCover(isPresented: Binding(
-            get: { imageScannerViewModel.isProcessing },
-            set: { _ in }
-        )) {
-            PhotoProcessingLoadingView(state: imageScannerViewModel.state)
         }
     }
 
@@ -443,40 +342,23 @@ struct ScannerContentView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            HStack(spacing: Spacing.md) {
-                // Comparison Mode Button
-                ScannerComparisonButton(
-                    isActive: isComparisonModeActive,
-                    productCount: comparisonViewModel.comparisonProducts.count,
-                    onToggle: {
-                        if isComparisonModeActive {
-                            // Deactivate and show comparison if we have products
-                            isComparisonModeActive = false
-                            if !comparisonViewModel.comparisonProducts.isEmpty {
-                                showComparisonMode = true
-                            }
-                        } else {
-                            // Activate comparison mode
-                            isComparisonModeActive = true
+            ScannerComparisonButton(
+                isActive: isComparisonModeActive,
+                productCount: comparisonViewModel.comparisonProducts.count,
+                onToggle: {
+                    if isComparisonModeActive {
+                        isComparisonModeActive = false
+                        if !comparisonViewModel.comparisonProducts.isEmpty {
+                            showComparisonMode = true
                         }
-                    },
-                    onViewComparison: {
-                        showComparisonMode = true
-                    }
-                )
-
-                PhotoModeButton {
-                    // Stop the barcode scanner camera before switching to photo mode
-                    // This prevents the two camera sessions from competing
-                    viewModel.stopScanning()
-                    if AppLaunchConfiguration.current.isUITesting,
-                       AppLaunchConfiguration.current.shouldSimulateCameraAvailable {
-                        showImageScanner = true
                     } else {
-                        showPhotoCamera = true
+                        isComparisonModeActive = true
                     }
+                },
+                onViewComparison: {
+                    showComparisonMode = true
                 }
-            }
+            )
             .padding(.bottom, 50)
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
@@ -589,7 +471,7 @@ struct ScannerContentView: View {
 
     @ViewBuilder
     private var productDetailSheet: some View {
-        let barcode = viewModel.scannedProduct?.barcode ?? scannedBarcodeFromImage ?? ""
+        let barcode = viewModel.scannedProduct?.barcode ?? ""
 
         if !barcode.isEmpty {
             NavigationStack {
@@ -642,30 +524,6 @@ struct ScannerContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.ignoresSafeArea())
-    }
-}
-
-private struct PhotoModeButton: View {
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: "photo.on.rectangle")
-                    .font(.system(size: 16, weight: .semibold))
-                Text("Photo")
-                    .font(.callout)
-                    .fontWeight(.semibold)
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color.oceanTeal)
-            .cornerRadius(24)
-        }
-        .accessibilityLabel("Photo Mode")
-        .accessibilityHint("Switch to photo-based product scanning")
-        .accessibilityIdentifier("scanner.photoMode")
     }
 }
 

@@ -1,32 +1,34 @@
 # App Store Punch List
 
-## Local Validation Completed (July 19, 2026)
+## Local Validation Completed (July 24, 2026)
 
 - Xcode 26.6 / iOS 26.5 simulator runtime installed and used successfully.
 - All active unit and integration tests pass.
-- All 10 functional UI scenarios and all 4 launch configurations pass on iPhone 17 Pro.
-- The 10 functional UI scenarios also pass on iPhone 17e and iPad mini.
+- All 7 barcode-only functional UI scenarios and all 4 launch configurations pass on iPhone 17 Pro.
+- All 7 barcode-only functional UI scenarios also pass on iPhone 17e and iPad mini.
 - Release builds succeed for both the generic iOS Simulator and generic iOS device destinations.
-- Apple Developer signing is configured. A fresh signed archive and App Store Connect `.ipa` export from scoring contract `health-scoring-v1.2.0` both succeed; the distribution profile is valid through July 16, 2027.
-- The final IPA passes strict code-signature verification, has `get-task-allow` disabled, contains the privacy manifest and public release URLs, and contains no provider credential. Its SHA-256 is `13348c08235725fa94338cca7a96d0dcf0673a793ada8ab8ee1a5a6fccde4910`.
+- Apple Developer signing is configured, and the distribution profile is valid through July 16, 2027.
+- The earlier signed artifact passed signature, entitlement, privacy-manifest, URL, and credential audits. It is superseded by the barcode-only and transparency changes; regenerate and re-audit the final IPA before upload.
 - Xcode static analysis succeeds with no source-code diagnostics. Xcode emits only its harmless App Intents metadata-skipped message because Mira does not link AppIntents.
 - The Release bundle contains `PrivacyInfo.xcprivacy`, declares no tracking, and contains no provider credential.
 - The privacy, terms, support, and marketing pages are public on GitHub Pages, return HTTP 200, and their live URLs are present in the release configuration.
+- The public scoring-methodology page is implemented and must be verified at its production URL after the current branch is published.
 - Deterministic, rights-safe App Store screenshot tests generate five verified 6.9-inch iPhone images and five verified 13-inch iPad images in accepted pixel dimensions.
 - The bounded scoring contract is versioned as `health-scoring-v1.2.0`; representative-food and nutrient-availability regression tests cover the corrected weight normalization and known-zero handling.
 
 ## Ship Blockers
 
 - Keep release URLs in the ignored `Mira/Resources/Configuration.plist`; never place provider secrets in an App Store binary. Use a controlled backend before relying on a private USDA key at production scale.
-- Verify barcode and on-device photo-label scanning end to end on physical devices.
-- Run signed Release-build QA on at least one physical iPhone, including camera permission, live barcode scanning, photo-label recognition, offline fallback, and data reset. Simulator validation covers small/standard/large iPhone and iPad layouts; test a physical iPad too if one is available, or make an explicit risk acceptance for 1.0.
+- Verify barcode scanning end to end on physical devices. Camera permission and a real packaged-food barcode have passed on the connected iPhone.
+- Complete signed Release-build QA on at least one physical iPhone, including offline fallback and data reset. Simulator validation covers small/standard/large iPhone and iPad layouts; test a physical iPad too if one is available, or make an explicit risk acceptance for 1.0.
 - Supply the App Review contact phone number and complete the App Store Connect privacy, age-rating, export-compliance, EU trader-status, and content-rights declarations.
 
 Submission field recommendations and the remaining owner-only decisions are recorded in `APP_STORE_CONNECT_SUBMISSION.md`.
 
 ## High Priority
 
-- Verify the deterministic photo-result and disambiguation flows with real photos on a physical device. Xcode UI tests now pass for onboarding, simulated barcode scan to detail, denied camera permission with search fallback, photo-scan entry, single-match confirmation, multiple-match disambiguation, seeded history/detail, shopping list, clearing history, and full local-data reset.
+- Keep the barcode-only scanner regression suite green. Xcode UI tests cover onboarding, simulated barcode scan to detail, denied camera permission with search fallback, seeded history/detail, shopping list, clearing history, and full local-data reset.
+- Keep score detail optional: the product page shows a verdict and two plain-language reasons, while calculation, provenance, confidence, missing fields, and scoring-version details remain available under **Why this score?**
 - Upload and verify the generated screenshots and metadata in App Store Connect.
 - Complete the current App Store Connect age-rating questionnaire and EU trader-status declaration if distributing in the EU.
 - Profile launch time and first-scan latency on a real device.
@@ -54,7 +56,7 @@ Submission field recommendations and the remaining owner-only decisions are reco
 
 - Barcode scan, text search, history, color-coded score, score explanation, ingredient flags, and healthier alternatives.
 - Dietary-restriction and health-focus personalization, side-by-side comparison, favorites, shopping list, and pattern insights.
-- On-device photo-label OCR fallback, offline essentials catalog, and visible source provenance with a package-label verification reminder.
+- Offline essentials catalog and visible source provenance with a package-label verification reminder.
 
 ## Competitive Gaps to Validate or Plan
 

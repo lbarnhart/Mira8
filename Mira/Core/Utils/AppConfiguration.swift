@@ -10,6 +10,7 @@ struct AppConfiguration {
         case privacyPolicyURL = "PrivacyPolicyURL"
         case termsOfServiceURL = "TermsOfServiceURL"
         case helpCenterURL = "HelpCenterURL"
+        case methodologyURL = "MethodologyURL"
         case supportEmail = "SupportEmail"
     }
 
@@ -64,6 +65,7 @@ struct AppConfiguration {
         case .privacyPolicyURL,
              .termsOfServiceURL,
              .helpCenterURL,
+             .methodologyURL,
              .supportEmail:
             return nil
         }
@@ -104,6 +106,10 @@ struct AppConfiguration {
 
     var helpCenterURL: URL? {
         url(for: .helpCenterURL)
+    }
+
+    var methodologyURL: URL? {
+        url(for: .methodologyURL)
     }
 
     var supportEmailAddress: String? {

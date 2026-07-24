@@ -1,5 +1,7 @@
 # Mira AI Feature Implementation Plan
 
+> **Archived planning document:** This file records earlier exploration and is not the current 1.0 product specification. Product-photo recognition was removed from Mira because real-device testing did not meet the reliability bar. Mira 1.0 uses live barcode scanning plus text search; do not reintroduce image recognition without a separately approved accuracy, privacy, cost, and accessibility plan.
+
 > **Document Purpose**: This is the master planning document for incorporating AI into the Mira health app. It captures our strategic thinking, technical decisions, implementation progress, and serves as a reference for future development sessions.
 >
 > **Last Updated**: January 21, 2026

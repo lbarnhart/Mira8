@@ -16,11 +16,9 @@ Mira stores your health-focus and dietary preferences, scan history, favorites, 
 
 You can clear scan history or reset all local app data from Settings. Deleting the app also removes its locally stored data, subject to normal device-backup behavior controlled by Apple and your device settings.
 
-## Camera and photos
+## Camera
 
-Camera access is used for live barcode scanning and, when you choose photo scanning, capturing product-label images. Photo-library access is used only when you choose an existing image.
-
-In App Store builds, product-label text recognition runs on the device. Mira does not send the selected image to an AI provider. Recognized product text may be used as a search query as described below.
+Camera access is used only for live barcode scanning. Mira does not access your photo library or upload camera images.
 
 ## Product lookup requests
 

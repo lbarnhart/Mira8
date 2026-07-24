@@ -1,6 +1,6 @@
 import Foundation
 
-/// Tracks success/failure rates for product scanning (barcode and image-based).
+/// Tracks success/failure rates for barcode scanning.
 /// Helps understand which data sources work best for US products.
 actor ScanAnalyticsService {
     static let shared = ScanAnalyticsService()
@@ -21,6 +21,7 @@ actor ScanAnalyticsService {
 
         enum ScanType: String, Codable {
             case barcode
+            // Retained only so analytics written by pre-release builds can decode.
             case image
         }
 
@@ -41,7 +42,6 @@ actor ScanAnalyticsService {
     struct AnalyticsSummary: Codable {
         let totalScans: Int
         let barcodeScans: ScanTypeSummary
-        let imageScans: ScanTypeSummary
         let periodStart: Date
         let periodEnd: Date
 
@@ -78,28 +78,6 @@ actor ScanAnalyticsService {
         AppLog.info("📊 Analytics: Barcode scan - source=\(source.rawValue), outcome=\(outcome.rawValue)", category: .scanner)
     }
 
-    /// Track an image scan event
-    func trackImageScan(
-        source: ScanEvent.DataSource,
-        outcome: ScanEvent.Outcome,
-        productName: String? = nil,
-        brand: String? = nil,
-        matchScore: Double? = nil
-    ) async {
-        let event = ScanEvent(
-            timestamp: Date(),
-            scanType: .image,
-            source: source,
-            outcome: outcome,
-            productName: productName,
-            brand: brand,
-            matchScore: matchScore
-        )
-        await saveEvent(event)
-
-        AppLog.info("📊 Analytics: Image scan - source=\(source.rawValue), outcome=\(outcome.rawValue), score=\(matchScore.map { String(format: "%.2f", $0) } ?? "nil")", category: .scanner)
-    }
-
     // MARK: - Analytics Summary
 
     /// Get analytics summary for the last N days
@@ -110,12 +88,10 @@ actor ScanAnalyticsService {
         let recentEvents = events.filter { $0.timestamp >= cutoffDate }
 
         let barcodeEvents = recentEvents.filter { $0.scanType == .barcode }
-        let imageEvents = recentEvents.filter { $0.scanType == .image }
 
         return AnalyticsSummary(
-            totalScans: recentEvents.count,
+            totalScans: barcodeEvents.count,
             barcodeScans: summarize(barcodeEvents),
-            imageScans: summarize(imageEvents),
             periodStart: cutoffDate,
             periodEnd: Date()
         )
@@ -150,13 +126,6 @@ actor ScanAnalyticsService {
           OFF Success: \(summary.barcodeScans.offSuccessCount)
           Local Catalog: \(summary.barcodeScans.localCatalogSuccessCount)
           Failures: \(summary.barcodeScans.failureCount)
-
-        IMAGE SCANS:
-          Total: \(summary.imageScans.total)
-          Success Rate: \(String(format: "%.1f%%", summary.imageScans.successRate * 100))
-          USDA Success: \(summary.imageScans.usdaSuccessCount)
-          OFF Success: \(summary.imageScans.offSuccessCount)
-          Failures: \(summary.imageScans.failureCount)
         ============================================
         """, category: .scanner)
     }
