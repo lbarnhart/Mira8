@@ -41,7 +41,7 @@ Open Food Facts expressly notes that its volunteer-provided data may not be accu
 
 ## What users can inspect
 
-Inside **See how Mira calculated this**, users can review:
+Inside **Why this score?**, users can review:
 
 - the nutrient score before other rules
 - any rule or data-confidence effect

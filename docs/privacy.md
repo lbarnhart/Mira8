@@ -6,7 +6,7 @@ permalink: /privacy/
 
 # Mira Privacy Policy
 
-Effective: July 19, 2026
+Effective: July 24, 2026
 
 Mira is designed to work without an account, advertising, or cross-app tracking. This policy explains what information the Mira iOS app uses, where it is processed, and the choices available to you.
 

@@ -8,11 +8,11 @@
 - All 7 barcode-only functional UI scenarios also pass on iPhone 17e and iPad mini.
 - Release builds succeed for both the generic iOS Simulator and generic iOS device destinations.
 - Apple Developer signing is configured, and the distribution profile is valid through July 16, 2027.
-- The earlier signed artifact passed signature, entitlement, privacy-manifest, URL, and credential audits. It is superseded by the barcode-only and transparency changes; regenerate and re-audit the final IPA before upload.
+- The barcode-only v1.3 IPA passes strict signature, entitlement, privacy-manifest, public-URL, photo-permission, removed-UI-string, tracking, and credential audits. Its SHA-256 is `efbc6a68ec3a292e911b2c9e3a9ca1406bd70298ad25efc515216167de607bca`.
 - Xcode static analysis succeeds with no source-code diagnostics. Xcode emits only its harmless App Intents metadata-skipped message because Mira does not link AppIntents.
 - The Release bundle contains `PrivacyInfo.xcprivacy`, declares no tracking, and contains no provider credential.
 - The privacy, terms, support, and marketing pages are public on GitHub Pages, return HTTP 200, and their live URLs are present in the release configuration.
-- The public scoring-methodology page is implemented and must be verified at its production URL after the current branch is published.
+- The public scoring-methodology page is deployed from `gh-pages`, returns HTTP 200, and identifies the active `health-scoring-v1.2.0` contract.
 - Deterministic, rights-safe App Store screenshot tests generate five verified 6.9-inch iPhone images and five verified 13-inch iPad images in accepted pixel dimensions.
 - The bounded scoring contract is versioned as `health-scoring-v1.2.0`; representative-food and nutrient-availability regression tests cover the corrected weight normalization and known-zero handling.
 
