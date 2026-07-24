@@ -3,12 +3,13 @@
 ## Local Validation Completed (July 24, 2026)
 
 - Xcode 26.6 / iOS 26.5 simulator runtime installed and used successfully.
-- All active unit and integration tests pass.
+- The full serial regression suite passes: 65 tests passed, 16 intentionally superseded scoring-contract tests skipped, and 0 tests failed.
 - All 7 barcode-only functional UI scenarios and all 4 launch configurations pass on iPhone 17 Pro.
 - All 7 barcode-only functional UI scenarios also pass on iPhone 17e and iPad mini.
+- Automated accessibility audits pass on iPhone 17e and iPad mini across contrast, element detection, hit regions, descriptions, clipping, traits, and Dynamic Type.
 - Release builds succeed for both the generic iOS Simulator and generic iOS device destinations.
 - Apple Developer signing is configured, and the distribution profile is valid through July 16, 2027.
-- The barcode-only v1.3 IPA passes strict signature, entitlement, privacy-manifest, public-URL, photo-permission, removed-UI-string, tracking, and credential audits. Its SHA-256 is `efbc6a68ec3a292e911b2c9e3a9ca1406bd70298ad25efc515216167de607bca`.
+- The barcode-only v1.4 IPA was archived from app-source commit `5258336308125fc39444b269252a9b622a29ef79` and passes strict signature, distribution-entitlement, privacy-manifest, public-URL, photo-permission, removed-UI-string, tracking, and credential audits. Its SHA-256 is `ae75797efb31c4464d6fc66bdfe957ffead7914a42a8fab2f9cc495d42a52b37`.
 - Xcode static analysis succeeds with no source-code diagnostics. Xcode emits only its harmless App Intents metadata-skipped message because Mira does not link AppIntents.
 - The Release bundle contains `PrivacyInfo.xcprivacy`, declares no tracking, and contains no provider credential.
 - The privacy, terms, support, and marketing pages are public on GitHub Pages, return HTTP 200, and their live URLs are present in the release configuration.
@@ -32,7 +33,7 @@ Submission field recommendations and the remaining owner-only decisions are reco
 - Upload and verify the generated screenshots and metadata in App Store Connect.
 - Complete the current App Store Connect age-rating questionnaire and EU trader-status declaration if distributing in the EU.
 - Profile launch time and first-scan latency on a real device.
-- Audit VoiceOver labels and Dynamic Type on scanner, product detail, and insights.
+- Complete a short VoiceOver smoke test on the signed physical-device build. Automated label, trait, hit-region, contrast, clipping, and Dynamic Type audits already pass on compact iPhone and iPad layouts.
 
 ## Better Than Yuka
 

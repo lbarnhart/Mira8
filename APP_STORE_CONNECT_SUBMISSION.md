@@ -1,6 +1,6 @@
 # App Store Connect Submission Guide
 
-Prepared for Mira 1.0 (build 1), bundle ID `com.mira8.app`, from app-source commit `b0e7850e120ee2a9bca02ccba652cdb0495cacd7`.
+Prepared for Mira 1.0 (build 1), bundle ID `com.mira8.app`, from app-source commit `5258336308125fc39444b269252a9b622a29ef79`.
 
 This guide records recommended answers based on the reviewed Release binary and source. Recheck it if the app's services, business model, or data practices change.
 
@@ -19,11 +19,11 @@ This guide records recommended answers based on the reviewed Release binary and 
 - Support email: **barnhartl91@gmail.com**
 - Copyright: **2026 Lauren Barnhart**
 
-Do not upload the previous v1.2 artifact; it predates removal of photo scanning and the revised score explanation. Use this regenerated, audited release candidate:
+Do not upload the previous v1.3 artifact; it predates the simplified score presentation and final accessibility corrections. Use this regenerated, audited release candidate:
 
-- App-source commit: `b0e7850e120ee2a9bca02ccba652cdb0495cacd7`
-- IPA: `Mira8-1.0-1-AppStore-v1.3.ipa`
-- SHA-256: `efbc6a68ec3a292e911b2c9e3a9ca1406bd70298ad25efc515216167de607bca`
+- App-source commit: `5258336308125fc39444b269252a9b622a29ef79`
+- IPA: `Mira8-1.0-1-AppStore-v1.4.ipa`
+- SHA-256: `ae75797efb31c4464d6fc66bdfe957ffead7914a42a8fab2f9cc495d42a52b37`
 - Scoring contract: `health-scoring-v1.2.0`
 
 ## App Privacy
