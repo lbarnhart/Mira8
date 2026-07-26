@@ -11,10 +11,10 @@ Mira: Smart Food Scanner
 Personalized grocery insights
 
 **Primary category**<br>
-Food & Drink
+Health & Fitness
 
 **Secondary category**<br>
-Health & Fitness
+Food & Drink
 
 **Promotional text (170 characters maximum)**<br>
 Scan or search foods, understand the score, compare options, and find choices that better fit your nutrition goals and dietary preferences.
@@ -31,9 +31,9 @@ Scan a barcode or search by name to see a clear health score, nutrition details,
 WHAT YOU CAN DO
 
 • Scan packaged-food barcodes for fast product details<br>
-• Photograph a product label and identify it with on-device text recognition<br>
-• Search naturally, such as “high-protein snacks” or “low-sugar cereal”<br>
-• Understand the factors behind each score<br>
+• Search by product, brand, or a goal such as “low-sugar cereal”<br>
+• Get one clear score, a plain-language verdict, and the two biggest reasons<br>
+• Open “Why this score?” to inspect the calculation, source, confidence, and missing data<br>
 • Review ingredient and dietary-restriction warnings<br>
 • Compare products side by side<br>
 • Discover potentially better alternatives<br>
@@ -47,7 +47,7 @@ Mira identifies the source of product data and reminds you to verify the current
 
 PRIVACY BY DESIGN
 
-Mira has no account, advertising, or cross-app tracking. Personal preferences, history, favorites, shopping-list items, and diagnostics remain on the device. App Store builds process product-photo text on the device.
+Mira has no account, advertising, or cross-app tracking. Personal preferences, history, favorites, shopping-list items, and diagnostics remain on the device. Camera access is used only for live barcode scanning.
 
 Mira provides general food and nutrition information, not medical advice. Always verify package and allergen labels. Consult a qualified healthcare professional for personal medical guidance.
 
@@ -69,7 +69,7 @@ Product information is supported by Open Food Facts and USDA FoodData Central.
 
 Mira does not require an account or subscription. The Scan tab requests camera access for live barcode scanning. Reviewers may also use Search without granting camera access.
 
-Suggested barcode for live testing: `5449000000996` (availability depends on the current public product databases). Product-photo recognition is available from the Photo control on the Scan tab and runs on device in the App Store build. An internet connection improves product coverage; a bundled catalog supplies limited offline results.
+Suggested barcode for live testing: `3017620425035` (Nutella). That barcode is included in Mira’s bundled fallback catalog, so it can open a product result even when the public services are unavailable. Reviewers can also use Search without granting camera access.
 
 The health score is informational and its contributing factors are visible on the product-detail screen. The About screen contains the health disclaimer, privacy summary, support links, and data-source attribution. Settings includes Clear Scan History and Reset All App Data controls.
 

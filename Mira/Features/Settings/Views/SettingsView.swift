@@ -429,7 +429,7 @@ struct AboutSheet: View {
                             .font(.headlineSmall)
                             .foregroundColor(.textPrimary)
 
-                        Text("Mira has no account, advertising, or cross-app tracking. Your profile, scans, favorites, shopping list, and scan diagnostics stay on this device. Barcode and search terms are sent to Open Food Facts or USDA only to retrieve product information. In App Store builds, product-photo text recognition runs on your device. You can erase local data from Settings at any time.")
+                        Text("Mira has no account, advertising, or cross-app tracking. Your profile, scans, favorites, shopping list, and scan diagnostics stay on this device. Barcode and search terms are sent to Open Food Facts or USDA only to retrieve product information. Camera access is used only for live barcode scanning. You can erase local data from Settings at any time.")
                             .bodyMediumStyle()
                             .foregroundColor(.textSecondary)
                     }
