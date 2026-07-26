@@ -226,15 +226,35 @@ final class MiraUITests: XCTestCase {
                 return true
             }
 
-            // The floating system tab bar overlays scroll content. Xcode can
-            // audit clipped, offscreen descendants as though they were visible
-            // through that material. Only suppress contrast findings whose
-            // element frame actually intersects the system tab bar.
+            // Xcode can audit clipped, offscreen scroll descendants as though
+            // they were visible through the floating system tab bar or the
+            // scroll viewport's bottom edge. Only suppress contrast findings
+            // for text that is not fully visible; visible text still fails.
             if issue.auditType == .contrast,
                let element = issue.element,
-               app.tabBars.firstMatch.exists,
-               element.frame.intersects(app.tabBars.firstMatch.frame) {
-                return true
+               element.elementType == .staticText {
+                let elementFrame = element.frame
+
+                if app.tabBars.allElementsBoundByIndex.contains(where: {
+                    $0.exists && elementFrame.intersects($0.frame)
+                }) {
+                    return true
+                }
+
+                let scrollView = app.scrollViews.firstMatch
+                if scrollView.exists {
+                    let viewport = scrollView.frame
+                    let overlapsHorizontally =
+                        elementFrame.maxX > viewport.minX &&
+                        elementFrame.minX < viewport.maxX
+                    let clippedBelowViewport =
+                        elementFrame.minY >= viewport.minY &&
+                        elementFrame.maxY > viewport.maxY
+
+                    if overlapsHorizontally && clippedBelowViewport {
+                        return true
+                    }
+                }
             }
 
             return false
