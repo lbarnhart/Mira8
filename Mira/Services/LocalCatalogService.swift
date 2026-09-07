@@ -39,7 +39,7 @@ actor LocalCatalogService {
 
             var dict: [String: LocalProduceItem] = [:]
             for item in decoded.products {
-                dict[item.barcode] = item
+                dict[BarcodeNormalizer.lookupKey(for: item.barcode)] = item
             }
 
             catalog = dict
@@ -51,7 +51,7 @@ actor LocalCatalogService {
     }
 
     func product(for barcode: String) -> LocalProduceItem? {
-        return catalog[barcode]
+        catalog[BarcodeNormalizer.lookupKey(for: barcode)]
     }
 
     func makeAPIProduct(from item: LocalProduceItem) -> APIProduct {

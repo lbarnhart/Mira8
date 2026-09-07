@@ -111,12 +111,20 @@ final class OfflineProductCache {
     func clearCache() {
         do {
             try coreDataManager.clearScanHistory()
-            lastFetchDates.removeAll()
-            saveFetchDates()
+            try clearLocalMetadata()
             AppLog.info("OfflineProductCache: Cache cleared", category: .persistence)
         } catch {
             AppLog.error("OfflineProductCache: Failed to clear cache - \(error.localizedDescription)", category: .persistence)
         }
+    }
+
+    /// Removes the persisted lookup timestamps used to determine cache age.
+    /// Kept separate from `clearCache()` so a full app reset can report errors
+    /// without redundantly deleting Core Data a second time.
+    func clearLocalMetadata() throws {
+        lastFetchDates.removeAll()
+        guard FileManager.default.fileExists(atPath: fetchDatesURL.path) else { return }
+        try FileManager.default.removeItem(at: fetchDatesURL)
     }
     
     // MARK: - Prefetching

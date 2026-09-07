@@ -2,26 +2,6 @@ import Foundation
 import UIKit
 @preconcurrency import AVFoundation
 
-/// Scanning mode for the scanner view
-enum ScanMode: String, CaseIterable {
-    case barcode
-    case image
-
-    var displayName: String {
-        switch self {
-        case .barcode: return "Barcode"
-        case .image: return "Photo"
-        }
-    }
-
-    var iconName: String {
-        switch self {
-        case .barcode: return "barcode.viewfinder"
-        case .image: return "camera.viewfinder"
-        }
-    }
-}
-
 @MainActor
 final class ScannerViewModel: NSObject, ObservableObject {
     @Published var hasPermission = false
@@ -33,12 +13,6 @@ final class ScannerViewModel: NSObject, ObservableObject {
     @Published var scannedProduct: ProductModel?
     @Published private(set) var captureSession: AVCaptureSession?
     @Published private(set) var isCameraSetup = false
-
-    /// Current scanning mode (barcode or image recognition)
-    @Published var scanMode: ScanMode = .barcode
-
-    /// Whether to show the image scanner sheet
-    @Published var showImageScanner = false
 
     /// Whether to show the duplicate scan sheet
     @Published var showDuplicateScan = false
@@ -52,22 +26,33 @@ final class ScannerViewModel: NSObject, ObservableObject {
     private let coreDataManager: CoreDataManager
     private let recommendationService: PersonalizedRecommendationService
     private let analyticsService: ScanAnalyticsService
+    private let launchConfiguration: AppLaunchConfiguration
     private var fetchTask: Task<Void, Never>?
+    private var lookupGeneration = UUID()
 
     init(
         usdaService: USDAService = .shared,
         openFoodFactsService: OpenFoodFactsService = .shared,
         coreDataManager: CoreDataManager = .shared,
         recommendationService: PersonalizedRecommendationService = PersonalizedRecommendationService(),
-        analyticsService: ScanAnalyticsService = .shared
+        analyticsService: ScanAnalyticsService = .shared,
+        launchConfiguration: AppLaunchConfiguration = .current
     ) {
         self.usdaService = usdaService
         self.openFoodFactsService = openFoodFactsService
         self.coreDataManager = coreDataManager
         self.recommendationService = recommendationService
         self.analyticsService = analyticsService
+        self.launchConfiguration = launchConfiguration
         super.init()
-        checkPermission()
+        if launchConfiguration.shouldSimulateCameraDenied {
+            hasPermission = false
+        } else if launchConfiguration.shouldSimulateCameraAvailable
+                    || launchConfiguration.simulatedScannedBarcode != nil {
+            hasPermission = true
+        } else {
+            checkPermission()
+        }
     }
 
     deinit {
@@ -75,6 +60,12 @@ final class ScannerViewModel: NSObject, ObservableObject {
     }
 
     private func checkPermission() {
+        guard !launchConfiguration.shouldSimulateCameraDenied else {
+            hasPermission = false
+            teardownSession()
+            return
+        }
+
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
             hasPermission = true
@@ -107,6 +98,9 @@ final class ScannerViewModel: NSObject, ObservableObject {
     }
 
     func setupCamera() async {
+        guard !launchConfiguration.shouldSimulateCameraAvailable,
+              launchConfiguration.simulatedScannedBarcode == nil else { return }
+
         if !hasPermission {
             checkPermission()
         }
@@ -212,6 +206,7 @@ final class ScannerViewModel: NSObject, ObservableObject {
     }
 
     func resetScanner() {
+        lookupGeneration = UUID()
         fetchTask?.cancel()
         fetchTask = nil
         stopScanning()
@@ -238,13 +233,15 @@ final class ScannerViewModel: NSObject, ObservableObject {
         )
         lastScanResult = scanResult
 
+        let generation = UUID()
+        lookupGeneration = generation
         fetchTask?.cancel()
         fetchTask = Task { [weak self] in
-            await self?.fetchProductData(for: barcode)
+            await self?.fetchProductData(for: barcode, generation: generation)
         }
     }
 
-    private func fetchProductData(for barcode: String) async {
+    private func fetchProductData(for barcode: String, generation: UUID) async {
         await MainActor.run {
             isLoading = true
             errorMessage = nil
@@ -256,64 +253,43 @@ final class ScannerViewModel: NSObject, ObservableObject {
             var productModel: ProductModel?
             var source = ""
 
-            // Try USDA first
-            do {
-                let usdaProduct = try await usdaService.searchProductByBarcode(barcode)
-                productModel = makeProductModel(from: usdaProduct)
-                source = "USDA"
-                AppLog.debug("✅ Product found in USDA", category: .scanner)
-            } catch {
-                AppLog.warning("⚠️ USDA failed: \(error.localizedDescription)", category: .scanner)
-                AppLog.debug("🔄 Falling back to Open Food Facts...", category: .scanner)
-
+            // Prefer exact local and Open Food Facts lookups. USDA is a fallback because it
+            // requires a key and its search endpoint must be filtered to an exact GTIN.
+            if let localItem = await LocalCatalogService.shared.product(for: barcode) {
+                try Task.checkCancellation()
+                let catalogProduct = await LocalCatalogService.shared.makeAPIProduct(from: localItem)
+                productModel = makeProductModel(from: catalogProduct)
+                source = "Local Catalog"
+                AppLog.debug("✅ Product found in local catalog", category: .scanner)
+            } else if let essentialProduct = await EssentialsDatabase.shared.getProductIfAvailable(barcode: barcode) {
+                try Task.checkCancellation()
+                productModel = makeProductModel(from: essentialProduct)
+                source = "Local Catalog"
+                AppLog.debug("✅ Product found in offline essentials catalog", category: .scanner)
+            } else {
                 do {
                     let offProduct = try await openFoodFactsService.searchProductByBarcode(barcode)
+                    try Task.checkCancellation()
                     productModel = makeProductModel(from: offProduct)
                     source = "Open Food Facts"
                     AppLog.debug("✅ Product found in Open Food Facts", category: .scanner)
                 } catch {
+                    try Task.checkCancellation()
                     AppLog.warning("⚠️ Open Food Facts failed: \(error.localizedDescription)", category: .scanner)
-                    AppLog.debug("🔄 Checking local produce catalog...", category: .scanner)
+                    AppLog.debug("🔄 Falling back to USDA...", category: .scanner)
 
-                    // Try local catalog as final fallback
-                    if let localItem = await LocalCatalogService.shared.product(for: barcode) {
-                        let catalogProduct = await LocalCatalogService.shared.makeAPIProduct(from: localItem)
-                        productModel = makeProductModel(from: catalogProduct)
-                        source = "Local Catalog"
-                        AppLog.debug("✅ Product found in local catalog", category: .scanner)
-                    } else {
-                        throw NetworkError.productNotFound
-                    }
+                    let usdaProduct = try await usdaService.searchProductByBarcode(barcode)
+                    try Task.checkCancellation()
+                    productModel = makeProductModel(from: usdaProduct)
+                    source = "USDA"
+                    AppLog.debug("✅ Product found in USDA", category: .scanner)
                 }
             }
 
-            guard var finalModel = productModel else {
+            guard let finalModel = productModel else {
                 throw NetworkError.productNotFound
             }
-
-            let needsImage = finalModel.imageURL?.isEmpty ?? true
-            let needsIngredients = finalModel.ingredients.isEmpty
-
-            if source == "USDA" && (needsImage || needsIngredients) {
-                AppLog.debug("🖼️ USDA product missing \(needsImage ? "image" : "")\(needsImage && needsIngredients ? " and " : "")\(needsIngredients ? "ingredients" : "") – fetching from OFF...", category: .scanner)
-                do {
-                    let offProduct = try await openFoodFactsService.searchProductByBarcode(barcode)
-                    let offModel = makeProductModel(from: offProduct)
-
-                    if needsImage {
-                        finalModel.imageURL = offModel.imageURL
-                        finalModel.thumbnailURL = offModel.thumbnailURL ?? offModel.imageURL
-                    }
-
-                    if needsIngredients {
-                        finalModel.ingredients = offModel.ingredients
-                    }
-
-                    AppLog.debug("🖼️ Enhanced USDA product with OFF data", category: .scanner)
-                } catch {
-                    AppLog.warning("⚠️ Could not fetch supplemental data from OFF: \(error.localizedDescription)", category: .scanner)
-                }
-            }
+            try Task.checkCancellation()
 
             AppLog.debug("📦 Final product source: \(source)", category: .scanner)
             AppLog.debug("📦 Has image: \(!(finalModel.imageURL?.isEmpty ?? true))", category: .scanner)
@@ -321,6 +297,7 @@ final class ScannerViewModel: NSObject, ObservableObject {
 
             // Check for duplicate scan before showing product
             let isDuplicate = checkForRecentScan(barcode: barcode)
+            guard lookupGeneration == generation else { return }
 
             await MainActor.run {
                 scannedProduct = finalModel
@@ -336,6 +313,8 @@ final class ScannerViewModel: NSObject, ObservableObject {
             }
 
             AppLog.debug("📸 Scanned product: \(finalModel.name)", category: .scanner)
+            try Task.checkCancellation()
+            guard lookupGeneration == generation else { return }
             persistScanIfNeeded(finalModel)
 
             // Track analytics
@@ -354,7 +333,10 @@ final class ScannerViewModel: NSObject, ObservableObject {
                 productName: finalModel.name,
                 brand: finalModel.brand
             )
+        } catch is CancellationError {
+            return
         } catch {
+            guard lookupGeneration == generation else { return }
             AppLog.error("❌ Error fetching product: \(error.localizedDescription)", category: .scanner)
 
             // Track failure
@@ -371,7 +353,9 @@ final class ScannerViewModel: NSObject, ObservableObject {
             }
         }
 
-        fetchTask = nil
+        if lookupGeneration == generation {
+            fetchTask = nil
+        }
     }
 
     private func showErrorMessage(_ message: String) {
@@ -384,11 +368,43 @@ final class ScannerViewModel: NSObject, ObservableObject {
     }
 
     func refreshPermissionStatus() {
+        guard !launchConfiguration.shouldSimulateCameraDenied else {
+            hasPermission = false
+            return
+        }
+        guard !launchConfiguration.shouldSimulateCameraAvailable,
+              launchConfiguration.simulatedScannedBarcode == nil else {
+            hasPermission = true
+            simulateConfiguredScanIfNeeded()
+            return
+        }
+
         checkPermission()
         if hasPermission {
             Task { await setupCamera() }
         } else {
             teardownSession()
+        }
+    }
+
+    func simulateConfiguredScanIfNeeded() {
+        guard launchConfiguration.isUITesting,
+              let barcode = launchConfiguration.simulatedScannedBarcode,
+              scannedProduct == nil else {
+            return
+        }
+
+        do {
+            guard let storedProduct = try coreDataManager.fetchProduct(byBarcode: barcode) else {
+                showErrorMessage("UI test product was not seeded for barcode \(barcode).")
+                return
+            }
+
+            lastScanResult = ScanResult(barcode: barcode, type: .ean13)
+            scannedProduct = storedProduct.toProductModel()
+            isLoading = false
+        } catch {
+            showErrorMessage("Unable to load the UI test product: \(error.localizedDescription)")
         }
     }
 
@@ -398,21 +414,10 @@ final class ScannerViewModel: NSObject, ObservableObject {
     }
 
     private func makeProductModel(from apiProduct: APIProduct) -> ProductModel {
-        // Align per-100g API data to the product's serving size for display
-        // Use servingSizeDisplay if available (e.g., "2 tbsp (30 g)"), else fall back to "100g"
-        let servingDisplay = apiProduct.servingSizeDisplay ?? "100g"
-        let servingMultiplier = (apiProduct.servingSizeInGrams ?? 100) / 100
-        let adjustedNutritionData = apiProduct.nutritionalData.scaled(by: servingMultiplier)
+        let adjustedNutritionData = apiProduct.nutritionalDataForDisplayedServing
         let nutrition = ProductNutrition(
-            calories: adjustedNutritionData.calories,
-            protein: adjustedNutritionData.protein,
-            carbohydrates: adjustedNutritionData.carbohydrates,
-            fat: adjustedNutritionData.fat,
-            fiber: adjustedNutritionData.fiber,
-            sugar: adjustedNutritionData.sugar,
-            sodium: adjustedNutritionData.sodium,
-            cholesterol: adjustedNutritionData.cholesterol,
-            servingSize: servingDisplay
+            from: adjustedNutritionData,
+            servingSize: apiProduct.servingSizeLabelForDisplay
         )
 
         // Prefer NOVA-derived processing level from APIProduct if available, else fall back to heuristic
@@ -436,7 +441,8 @@ final class ScannerViewModel: NSObject, ObservableObject {
             createdAt: Date(),
             updatedAt: Date(),
             isCached: false,
-            rawIngredientsText: apiProduct.rawIngredientsText
+            rawIngredientsText: apiProduct.rawIngredientsText,
+            dataSource: apiProduct.source
         )
     }
 
@@ -469,16 +475,7 @@ final class ScannerViewModel: NSObject, ObservableObject {
     }
 
     private func persistScanIfNeeded(_ productModel: ProductModel) {
-        let nutritionalData = NutritionalData(
-            calories: productModel.nutrition.calories,
-            protein: productModel.nutrition.protein,
-            carbohydrates: productModel.nutrition.carbohydrates,
-            fat: productModel.nutrition.fat,
-            fiber: productModel.nutrition.fiber,
-            sugar: productModel.nutrition.sugar,
-            sodium: productModel.nutrition.sodium,
-            cholesterol: productModel.nutrition.cholesterol
-        )
+        let nutritionalData = productModel.nutrition.nutritionData
 
         let product = Product(
             id: productModel.id.uuidString,
@@ -491,7 +488,8 @@ final class ScannerViewModel: NSObject, ObservableObject {
             servingSize: productModel.nutrition.servingSize,
             imageURL: productModel.imageURL,
             thumbnailURL: productModel.thumbnailURL ?? productModel.imageURL,
-            lastScanned: Date()
+            lastScanned: Date(),
+            dataSource: productModel.dataSource
         )
 
         let barcode = product.barcode
@@ -529,11 +527,9 @@ final class ScannerViewModel: NSObject, ObservableObject {
                 AppLog.debug("📸 Insights cache invalidated", category: .scanner)
             } catch {
                 AppLog.error("❌ Failed to persist scan for \(barcode): \(error.localizedDescription)", category: .scanner)
-                await MainActor.run {
-                    if let self {
-                        self.errorMessage = "We saved the scan, but couldn't store it for history. Please try again later."
-                    }
-                }
+                await self?.showErrorMessage(
+                    "We found the product, but couldn't save it to your history. Please try again later."
+                )
             }
         }
     }

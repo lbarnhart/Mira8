@@ -1,5 +1,7 @@
 # Mira AI Feature Implementation Plan
 
+> **Archived planning document:** This file records earlier exploration and is not the current 1.0 product specification. Product-photo recognition was removed from Mira because real-device testing did not meet the reliability bar. Mira 1.0 uses live barcode scanning plus text search; do not reintroduce image recognition without a separately approved accuracy, privacy, cost, and accessibility plan.
+
 > **Document Purpose**: This is the master planning document for incorporating AI into the Mira health app. It captures our strategic thinking, technical decisions, implementation progress, and serves as a reference for future development sessions.
 >
 > **Last Updated**: January 21, 2026
@@ -218,7 +220,7 @@ For developers setting up the project:
 
 1. Copy the sample config:
    ```bash
-   cp Mira/App/Configuration/Configuration.sample.plist Mira/App/Configuration/Configuration.plist
+   cp App/Configuration/Configuration.sample.plist Mira/Resources/Configuration.plist
    ```
 
 2. Get an API key from [console.anthropic.com](https://console.anthropic.com)
@@ -226,7 +228,7 @@ For developers setting up the project:
 3. Add your key to Configuration.plist:
    ```xml
    <key>ClaudeAPIKey</key>
-   <string>sk-ant-api03-xxxxx</string>
+   <string>&lt;CLAUDE_API_KEY&gt;</string>
    ```
 
 4. Verify Configuration.plist is in .gitignore (it should be)

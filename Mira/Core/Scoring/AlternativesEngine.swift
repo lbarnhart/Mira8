@@ -146,6 +146,8 @@ final class AlternativesEngine {
 
         let origNutr = originalProduct.nutrition
         let altNutr = alternativeProduct.nutrition
+        let originalSodiumMg = origNutr.sodiumMilligrams
+        let alternativeSodiumMg = altNutr.sodiumMilligrams
 
         // Specific nutritional comparisons with numbers
         let nutritionComparisons: [(check: Bool, reason: String)] = [
@@ -166,8 +168,8 @@ final class AlternativesEngine {
             ),
             // Lower sodium
             (
-                altNutr.sodium < origNutr.sodium - 100 && origNutr.sodium > 200,
-                "Lower sodium (\(String(format: "%.0f", altNutr.sodium))mg vs \(String(format: "%.0f", origNutr.sodium))mg)"
+                alternativeSodiumMg < originalSodiumMg - 100 && originalSodiumMg > 200,
+                "Lower sodium (\(String(format: "%.0f", alternativeSodiumMg))mg vs \(String(format: "%.0f", originalSodiumMg))mg)"
             ),
             // Lower calories (for weight loss focus)
             (

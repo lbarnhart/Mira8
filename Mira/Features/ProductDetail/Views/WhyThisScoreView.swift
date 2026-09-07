@@ -1,315 +1,416 @@
+import Foundation
 import SwiftUI
 
-/// Modal view explaining why a product received its health score
-/// Displays scoring factors, methodology, and actionable insights
+/// Progressive disclosure for people who want to audit Mira's judgment.
+/// The sheet starts with a short explanation and keeps the calculation ledger,
+/// data caveats, and methodology behind explicit disclosure controls.
 struct WhyThisScoreView: View {
     let healthScore: HealthScore
     let productName: String
+    let healthFocus: HealthFocus
+    let dataSource: ProductSource?
+
     @Environment(\.dismiss) private var dismiss
-    
+    @State private var showPointDetails = false
+    @State private var showDataDetails = false
+    @State private var showMethodology = false
+
     private var positiveContributions: [NutrientContribution] {
         healthScore.contributions
             .filter { $0.kind == .positive && $0.weightedPoints > 0 }
             .sorted { $0.weightedPoints > $1.weightedPoints }
     }
-    
+
     private var negativeContributions: [NutrientContribution] {
         healthScore.contributions
             .filter { $0.kind == .negative && $0.weightedPoints > 0 }
             .sorted { $0.weightedPoints > $1.weightedPoints }
     }
-    
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
-                    // Score summary header
-                    scoreHeader
-                    
-                    // Key factors section
+                    scoreSummary
+
                     if !healthScore.topReasons.isEmpty {
-                        keyFactorsSection
+                        keyReasons
                     }
-                    
-                    // Detailed breakdown
-                    if !positiveContributions.isEmpty || !negativeContributions.isEmpty {
-                        detailedBreakdownSection
-                    }
-                    
-                    // How we calculate section
-                    methodologySection
+
+                    componentSummary
+                    calculationDisclosure
+                    dataDisclosure
+                    methodologyDisclosure
                 }
                 .padding()
             }
             .background(Color.backgroundPrimary)
-            .navigationTitle("Why This Score?")
+            .navigationTitle("How Mira Scored This")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .fontWeight(.semibold)
                 }
             }
         }
+        .accessibilityIdentifier("scoreExplanation.sheet")
     }
-    
-    // MARK: - Score Header
-    
-    private var scoreHeader: some View {
-        VStack(spacing: Spacing.md) {
-            // Verdict with score
-            HStack(spacing: Spacing.md) {
-                // Score circle
-                ZStack {
-                    Circle()
-                        .fill(verdictColor.opacity(0.15))
-                        .frame(width: 80, height: 80)
-                    
-                    VStack(spacing: 2) {
-                        Text("\(Int(healthScore.overall))")
-                            .font(.system(size: 28, weight: .bold, design: .rounded))
-                            .foregroundColor(verdictColor)
-                        
-                        Text("/ 100")
-                            .font(.caption2)
-                            .foregroundColor(.textTertiary)
-                    }
+
+    private var scoreSummary: some View {
+        HStack(spacing: Spacing.md) {
+            ZStack {
+                Circle()
+                    .fill(scoreColor.opacity(0.14))
+                    .frame(width: 76, height: 76)
+
+                VStack(spacing: 0) {
+                    Text("\(Int(healthScore.overall.rounded()))")
+                        .font(.system(size: 27, weight: .bold, design: .rounded))
+                        .foregroundColor(scoreColor)
+                    Text("/ 100")
+                        .font(.caption2)
+                        .foregroundColor(.textTertiary)
                 }
-                
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(healthScore.verdict.label)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(verdictColor)
-                    
-                    Text(healthScore.verdict.message)
+            }
+
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(healthScore.verdict.label)
+                    .font(.title3.weight(.bold))
+                    .foregroundColor(scoreColor)
+
+                Text(productName)
+                    .font(.subheadline)
+                    .foregroundColor(.textPrimary)
+                    .lineLimit(2)
+
+                Text("Using your \(healthFocus.displayName.lowercased()) lens")
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(Spacing.md)
+        .background(Color.backgroundSecondary)
+        .cornerRadius(CornerRadius.card)
+    }
+
+    private var keyReasons: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("The short answer")
+                .font(.headline)
+
+            ForEach(Array(healthScore.topReasons.prefix(2)), id: \.self) { reason in
+                HStack(alignment: .top, spacing: Spacing.xs) {
+                    Circle()
+                        .fill(scoreColor)
+                        .frame(width: 6, height: 6)
+                        .padding(.top, 6)
+                    Text(plainReason(reason))
                         .font(.subheadline)
                         .foregroundColor(.textSecondary)
-                    
-                    if let categoryRank = healthScore.categoryRank {
-                        Text(categoryRank)
-                            .font(.caption)
-                            .foregroundColor(.textTertiary)
-                    }
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                
-                Spacer()
             }
-            .padding()
-            .background(Color.backgroundSecondary)
-            .cornerRadius(CornerRadius.md)
         }
     }
-    
-    // MARK: - Key Factors Section
-    
-    private var keyFactorsSection: some View {
+
+    private var componentSummary: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Key Factors")
+            Text("Score at a glance")
                 .font(.headline)
+
+            VStack(spacing: Spacing.sm) {
+                scoreRow(
+                    label: "Nutrient balance",
+                    value: "\(Int(healthScore.rawScore.rounded()))"
+                )
+
+                let ruleImpact = healthScore.overall - healthScore.rawScore
+                if abs(ruleImpact) >= 0.5 {
+                    scoreRow(
+                        label: "Rules and data limits",
+                        value: ruleImpact > 0
+                            ? "+\(Int(ruleImpact.rounded()))"
+                            : "\(Int(ruleImpact.rounded()))"
+                    )
+                }
+
+                Divider()
+
+                scoreRow(
+                    label: "Final Mira score",
+                    value: "\(Int(healthScore.overall.rounded()))",
+                    emphasized: true
+                )
+            }
+            .padding(Spacing.md)
+            .background(Color.backgroundSecondary)
+            .cornerRadius(CornerRadius.card)
+        }
+        .accessibilityIdentifier("scoreExplanation.componentSummary")
+    }
+
+    private func scoreRow(label: String, value: String, emphasized: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .font(emphasized ? .subheadline.weight(.semibold) : .subheadline)
                 .foregroundColor(.textPrimary)
-            
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                ForEach(healthScore.topReasons, id: \.self) { reason in
-                    HStack(alignment: .top, spacing: Spacing.sm) {
-                        Image(systemName: factorIcon(for: reason))
-                            .font(.system(size: 14))
-                            .foregroundColor(factorColor(for: reason))
-                            .frame(width: 20)
-                        
-                        Text(reason)
+            Spacer()
+            Text(value)
+                .font(emphasized ? .headline : .subheadline.weight(.semibold))
+                .foregroundColor(emphasized ? scoreColor : .textSecondary)
+        }
+    }
+
+    private var calculationDisclosure: some View {
+        DisclosureGroup(isExpanded: $showPointDetails) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                if !positiveContributions.isEmpty {
+                    contributionSection(
+                        title: "Added points",
+                        contributions: positiveContributions,
+                        color: .scoreExcellent
+                    )
+                }
+
+                if !negativeContributions.isEmpty {
+                    contributionSection(
+                        title: "Removed points",
+                        contributions: negativeContributions,
+                        color: .scorePoor
+                    )
+                }
+
+                if !healthScore.adjustments.isEmpty {
+                    adjustmentSection
+                }
+            }
+            .padding(.top, Spacing.md)
+        } label: {
+            disclosureLabel(
+                title: "Point-by-point calculation",
+                subtitle: "See every factor that changed the score",
+                icon: "function"
+            )
+        }
+        .padding(Spacing.md)
+        .background(Color.backgroundSecondary)
+        .cornerRadius(CornerRadius.card)
+        .accessibilityIdentifier("scoreExplanation.calculation")
+    }
+
+    private func contributionSection(
+        title: String,
+        contributions: [NutrientContribution],
+        color: Color
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(color)
+
+            ForEach(contributions) { contribution in
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(contribution.label)
                             .font(.subheadline)
                             .foregroundColor(.textPrimary)
+
+                        if let value = contribution.value {
+                            Text("\(formatValue(value, unit: contribution.unit)) · \(contribution.guideline)")
+                                .font(.caption)
+                                .foregroundColor(.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
-                }
-            }
-            .padding()
-            .background(Color.backgroundSecondary)
-            .cornerRadius(CornerRadius.md)
-        }
-    }
-    
-    // MARK: - Detailed Breakdown Section
-    
-    private var detailedBreakdownSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Score Breakdown")
-                .font(.headline)
-                .foregroundColor(.textPrimary)
-            
-            VStack(spacing: Spacing.md) {
-                // Positive factors
-                if !positiveContributions.isEmpty {
-                    contributionGroup(
-                        title: "Boosting Your Score",
-                        icon: "arrow.up.circle.fill",
-                        color: Color(red: 0.2, green: 0.7, blue: 0.4),
-                        contributions: Array(positiveContributions.prefix(3))
-                    )
-                }
-                
-                // Negative factors
-                if !negativeContributions.isEmpty {
-                    contributionGroup(
-                        title: "Lowering Your Score",
-                        icon: "arrow.down.circle.fill",
-                        color: Color(red: 0.95, green: 0.4, blue: 0.2),
-                        contributions: Array(negativeContributions.prefix(3))
-                    )
-                }
-            }
-        }
-    }
-    
-    private func contributionGroup(title: String, icon: String, color: Color, contributions: [NutrientContribution]) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: icon)
-                    .foregroundColor(color)
-                Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(color)
-            }
-            
-            ForEach(contributions) { contribution in
-                HStack {
-                    Text(contribution.label)
-                        .font(.subheadline)
-                        .foregroundColor(.textPrimary)
-                    
-                    Spacer()
-                    
-                    if let value = contribution.value {
-                        Text("\(formatValue(value, unit: contribution.unit))")
-                            .font(.subheadline)
-                            .foregroundColor(.textSecondary)
-                    }
-                    
-                    Text("+\(Int(contribution.weightedPoints)) pts")
-                        .font(.caption)
-                        .fontWeight(.medium)
+
+                    Spacer(minLength: Spacing.sm)
+
+                    Text(pointText(for: contribution))
+                        .font(.subheadline.weight(.bold))
                         .foregroundColor(color)
                 }
             }
         }
-        .padding()
-        .background(color.opacity(0.08))
-        .cornerRadius(CornerRadius.sm)
     }
-    
-    // MARK: - Methodology Section
-    
-    private var methodologySection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("How We Calculate")
-                .font(.headline)
-                .foregroundColor(.textPrimary)
-            
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                methodologyItem(
-                    icon: "plus.circle.fill",
-                    title: "Positive Nutrients",
-                    description: "Protein, fiber, vitamins, and minerals add points to your score."
-                )
-                
-                methodologyItem(
-                    icon: "minus.circle.fill",
-                    title: "Negative Nutrients",
-                    description: "Sugar, sodium, and saturated fat reduce your score."
-                )
-                
-                methodologyItem(
-                    icon: "leaf.fill",
-                    title: "Ingredient Quality",
-                    description: "Whole foods and minimal processing boost your score."
-                )
-                
-                methodologyItem(
-                    icon: "exclamationmark.triangle.fill",
-                    title: "Additives",
-                    description: "Certain additives may lower the score based on health research."
-                )
-            }
-            .padding()
-            .background(Color.backgroundSecondary)
-            .cornerRadius(CornerRadius.md)
-            
-            // Explanation text
-            if !healthScore.explanation.isEmpty {
-                Text(healthScore.explanation)
-                    .font(.caption)
-                    .foregroundColor(.textTertiary)
-                    .padding(.top, Spacing.xs)
+
+    private var adjustmentSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("Other rules")
+                .font(.subheadline.weight(.semibold))
+
+            ForEach(healthScore.adjustments, id: \.label) { adjustment in
+                HStack(alignment: .top, spacing: Spacing.sm) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(adjustment.label)
+                            .font(.subheadline)
+                        Text(adjustment.reason)
+                            .font(.caption)
+                            .foregroundColor(.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Spacer(minLength: Spacing.sm)
+
+                    if adjustment.delta != 0 {
+                        Text(adjustment.delta > 0
+                             ? "+\(adjustment.delta, specifier: "%.0f")"
+                             : "\(adjustment.delta, specifier: "%.0f")")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundColor(adjustment.delta > 0 ? .scoreExcellent : .scorePoor)
+                    }
+                }
             }
         }
     }
-    
-    private func methodologyItem(icon: String, title: String, description: String) -> some View {
-        HStack(alignment: .top, spacing: Spacing.sm) {
+
+    private var dataDisclosure: some View {
+        DisclosureGroup(isExpanded: $showDataDetails) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                detailRow(label: "Product data", value: dataSource?.displayName ?? "Source unavailable")
+                detailRow(label: "Data confidence", value: healthScore.confidence.displayName)
+
+                if let scoring = healthScore.scoringResult {
+                    detailRow(label: "Category", value: scoring.categoryLabel)
+
+                    if !scoring.missingFields.isEmpty {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            Text("Missing from this record")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.scoreFair)
+                            Text(scoring.missingFields.joined(separator: ", "))
+                                .font(.caption)
+                                .foregroundColor(.textSecondary)
+                        }
+                    }
+                }
+
+                Text("Product records can be incomplete or out of date. Verify important values against the current package label.")
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.top, Spacing.md)
+        } label: {
+            disclosureLabel(
+                title: "Data source and confidence",
+                subtitle: sourceDisclosureSummary,
+                icon: healthScore.confidence == .low ? "exclamationmark.triangle" : "checkmark.shield"
+            )
+        }
+        .padding(Spacing.md)
+        .background(Color.backgroundSecondary)
+        .cornerRadius(CornerRadius.card)
+        .accessibilityIdentifier("scoreExplanation.data")
+    }
+
+    private var methodologyDisclosure: some View {
+        DisclosureGroup(isExpanded: $showMethodology) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Mira evaluates nutrients, ingredient quality, processing, and additives. Your selected health focus changes their relative weights; it does not change the underlying product facts.")
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let scoring = healthScore.scoringResult {
+                    detailRow(label: "Scoring version", value: scoring.algorithmVersion)
+                    detailRow(label: "Weight profile", value: scoring.weightsProfileID)
+                    detailRow(label: "Threshold set", value: scoring.thresholdSetID)
+                }
+
+                Text("The score is a decision aid, not medical advice. Different priorities can reasonably produce a different judgment.")
+                    .font(.caption)
+                    .foregroundColor(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let methodologyURL = AppConfiguration.shared.methodologyURL {
+                    Link(destination: methodologyURL) {
+                        Label("Read the full methodology", systemImage: "arrow.up.right.square")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .accessibilityIdentifier("scoreExplanation.methodologyLink")
+                }
+            }
+            .padding(.top, Spacing.md)
+        } label: {
+            disclosureLabel(
+                title: "Methodology",
+                subtitle: "What Mira values and why",
+                icon: "book.closed"
+            )
+        }
+        .padding(Spacing.md)
+        .background(Color.backgroundSecondary)
+        .cornerRadius(CornerRadius.card)
+        .accessibilityIdentifier("scoreExplanation.methodology")
+    }
+
+    private func disclosureLabel(title: String, subtitle: String, icon: String) -> some View {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: icon)
-                .font(.system(size: 16))
                 .foregroundColor(.primaryBlue)
                 .frame(width: 24)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.subheadline.weight(.semibold))
                     .foregroundColor(.textPrimary)
-                
-                Text(description)
+                Text(subtitle)
                     .font(.caption)
                     .foregroundColor(.textSecondary)
             }
         }
     }
-    
-    // MARK: - Helpers
-    
-    private var verdictColor: Color {
-        switch healthScore.verdict {
-        case .excellent:
-            return Color(red: 0.2, green: 0.7, blue: 0.4)
-        case .good:
-            return Color(red: 1.0, green: 0.8, blue: 0.0)
-        case .okay:
-            return Color(red: 1.0, green: 0.6, blue: 0.2)
-        case .fair:
-            return Color(red: 0.95, green: 0.5, blue: 0.2)
-        case .avoid:
-            return Color(red: 0.95, green: 0.2, blue: 0.2)
+
+    private func detailRow(label: String, value: String) -> some View {
+        HStack(alignment: .top) {
+            Text(label)
+                .font(.caption)
+                .foregroundColor(.textSecondary)
+            Spacer()
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.textPrimary)
+                .multilineTextAlignment(.trailing)
         }
     }
-    
-    private func factorIcon(for reason: String) -> String {
-        if reason.contains("✓") || reason.contains("⭐") || reason.starts(with: "+") {
-            return "checkmark.circle.fill"
-        } else if reason.contains("⚠") || reason.contains("✗") {
-            return "exclamationmark.circle.fill"
-        } else if reason.contains("~") {
-            return "minus.circle.fill"
-        }
-        return "circle.fill"
+
+    private var scoreColor: Color {
+        Color.scoreColor(for: healthScore.overall)
     }
-    
-    private func factorColor(for reason: String) -> Color {
-        if reason.contains("✓") || reason.contains("⭐") || reason.starts(with: "+") {
-            return Color(red: 0.2, green: 0.7, blue: 0.4)
-        } else if reason.contains("⚠") || reason.contains("✗") {
-            return Color(red: 0.95, green: 0.4, blue: 0.2)
-        }
-        return .textSecondary
+
+    private var sourceDisclosureSummary: String {
+        let source = dataSource?.displayName ?? "Source unavailable"
+        return "\(source) · \(healthScore.confidence.displayName)"
     }
-    
+
+    private func pointText(for contribution: NutrientContribution) -> String {
+        let points = Int(contribution.weightedPoints.rounded())
+        return contribution.kind == .positive ? "+\(points)" : "−\(points)"
+    }
+
     private func formatValue(_ value: Double, unit: String) -> String {
-        if value >= 1 {
+        if value.rounded() == value {
             return "\(Int(value))\(unit)"
-        } else {
-            return String(format: "%.1f%@", value, unit)
         }
+        return String(format: "%.1f%@", value, unit)
+    }
+
+    private func plainReason(_ reason: String) -> String {
+        let withoutPoints = reason.replacingOccurrences(
+            of: #"\s*\([+\-−]\d+(?:\.\d+)?\)\s*$"#,
+            with: "",
+            options: .regularExpression
+        )
+
+        if withoutPoints.hasPrefix("Boost: ") {
+            return String(withoutPoints.dropFirst("Boost: ".count)) + " helps"
+        }
+        if withoutPoints.hasPrefix("Penalty: ") {
+            return String(withoutPoints.dropFirst("Penalty: ".count)) + " lowers the score"
+        }
+        return withoutPoints
     }
 }
-
-// Preview temporarily disabled during HealthScore model refactor
-// TODO: Update preview once HealthScore model is finalized

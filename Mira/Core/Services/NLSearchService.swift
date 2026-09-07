@@ -175,7 +175,7 @@ actor NLSearchService {
         filters.categories = Array(Set(filters.categories))
 
         // Extract remaining search terms (words not matched by patterns)
-        var remainingTerms = extractRemainingTerms(from: lowercased, matchedPatterns: interpretations)
+        let remainingTerms = extractRemainingTerms(from: lowercased, matchedPatterns: interpretations)
         filters.searchTerms = remainingTerms.filter { $0.count > 2 }
 
         // Cap confidence

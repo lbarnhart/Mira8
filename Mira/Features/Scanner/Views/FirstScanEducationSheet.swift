@@ -302,7 +302,9 @@ struct FirstScanEducationSheet: View {
     // MARK: - Score Calculation
 
     private func calculateComparisonScores() {
-        let dietaryRestrictions = UserDefaults.standard.stringArray(forKey: "selectedDietaryRestrictions")?.compactMap { DietaryRestriction(rawValue: $0) } ?? []
+        let dietaryRestrictions = UserDefaults.standard
+            .stringArray(forKey: Constants.UserDefaults.dietaryRestrictions)?
+            .compactMap { DietaryRestriction(from: $0) } ?? []
 
         for focus in allFocuses {
             let score = ScoringEngine.shared.calculateHealthScore(

@@ -139,6 +139,14 @@ actor APIClient: APIClientProtocol {
             await logger.logError(error)
             throw error
         } catch {
+            if error is CancellationError || Task.isCancelled {
+                throw CancellationError()
+            }
+
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                throw CancellationError()
+            }
+
             // Retry on transient errors (timeout, connection lost, etc.)
             if isRetryableError(error) && attempt < retryConfig.maxRetries {
                 let delay = retryConfig.delay(for: attempt)
@@ -213,16 +221,15 @@ actor NetworkLogger {
         guard isEnabled else { return }
 
         AppLog.debug("🌐 API Request:", category: .network)
-        AppLog.debug("   URL: \(request.url?.absoluteString ?? "Unknown")", category: .network)
+        AppLog.debug("   URL: \(redactedURL(request.url))", category: .network)
         AppLog.debug("   Method: \(request.httpMethod ?? "Unknown")", category: .network)
 
         if let headers = request.allHTTPHeaderFields, !headers.isEmpty {
-            AppLog.debug("   Headers: \(headers)", category: .network)
+            AppLog.debug("   Headers: \(redactedHeaders(headers))", category: .network)
         }
 
-        if let body = request.httpBody,
-           let bodyString = String(data: body, encoding: .utf8) {
-            AppLog.debug("   Body: \(bodyString)", category: .network)
+        if let body = request.httpBody {
+            AppLog.debug("   Body: \(body.count) bytes", category: .network)
         }
 
         AppLog.debug("---", category: .network)
@@ -233,14 +240,8 @@ actor NetworkLogger {
 
         AppLog.debug("📡 API Response:", category: .network)
         AppLog.debug("   Status: \(response.statusCode)", category: .network)
-        AppLog.debug("   URL: \(response.url?.absoluteString ?? "Unknown")", category: .network)
-
-        if let responseString = String(data: data, encoding: .utf8) {
-            let truncated = responseString.count > 1000
-                ? String(responseString.prefix(1000)) + "... (truncated)"
-                : responseString
-            AppLog.debug("   Data: \(truncated)", category: .network)
-        }
+        AppLog.debug("   URL: \(redactedURL(response.url))", category: .network)
+        AppLog.debug("   Data: \(data.count) bytes", category: .network)
 
         AppLog.debug("---", category: .network)
     }
@@ -264,6 +265,27 @@ actor NetworkLogger {
 
         AppLog.debug("Retry attempt \(attempt)/\(maxRetries)", category: .network)
     }
+
+    private func redactedHeaders(_ headers: [String: String]) -> [String: String] {
+        let sensitiveNames = ["authorization", "cookie", "set-cookie", "x-api-key"]
+        return headers.reduce(into: [:]) { result, entry in
+            result[entry.key] = sensitiveNames.contains(entry.key.lowercased()) ? "<redacted>" : entry.value
+        }
+    }
+
+    private func redactedURL(_ url: URL?) -> String {
+        guard let url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return "Unknown"
+        }
+
+        let sensitiveNames = ["api_key", "apikey", "key", "token", "access_token"]
+        components.queryItems = components.queryItems?.map { item in
+            sensitiveNames.contains(item.name.lowercased())
+                ? URLQueryItem(name: item.name, value: "<redacted>")
+                : item
+        }
+        return components.string ?? "Unknown"
+    }
 }
 
 // MARK: - Convenience Extensions
@@ -279,7 +301,7 @@ extension APIClient {
 
     // MARK: - POST Requests
     func post<T: Codable, Body: Codable>(_ endpoint: APIEndpoint, body: Body) async throws -> T {
-        var mutableEndpoint = endpoint
+        let mutableEndpoint = endpoint
         do {
             let bodyData = try encoder.encode(body)
             return try await request(ModifiedEndpoint(endpoint: mutableEndpoint, body: bodyData))

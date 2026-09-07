@@ -9,6 +9,8 @@ struct SettingsView: View {
     @State private var showingAbout = false
     @State private var showingClearHistoryConfirmation = false
     @State private var showingClearHistoryError = false
+    @State private var showingResetAllDataConfirmation = false
+    @State private var showingResetAllDataError = false
     @State private var clearHistoryErrorMessage = ""
 
     private var selectedHealthFocus: HealthFocus {
@@ -50,7 +52,6 @@ struct SettingsView: View {
             .onAppear {
                 loadDietaryRestrictions()
             }
-            .accessibilityIdentifier("screen.settings")
         }
         .sheet(isPresented: $showingHealthProfile) {
             HealthProfileSheet(selectedFocus: selectedHealthFocusBinding)
@@ -72,6 +73,19 @@ struct SettingsView: View {
             Text("This removes your saved scan history from this device. Favorites and shopping list items stay intact.")
         }
         .alert("Unable to Clear History", isPresented: $showingClearHistoryError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(clearHistoryErrorMessage)
+        }
+        .alert("Reset All App Data?", isPresented: $showingResetAllDataConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Reset", role: .destructive) {
+                resetAllAppData()
+            }
+        } message: {
+            Text("This permanently removes scans, favorites, shopping-list items, preferences, and on-device analytics. Mira will return to onboarding.")
+        }
+        .alert("Unable to Reset App Data", isPresented: $showingResetAllDataError) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(clearHistoryErrorMessage)
@@ -113,13 +127,22 @@ struct SettingsView: View {
                 showingClearHistoryConfirmation = true
             }
             .accessibilityIdentifier("settings.clearHistory")
+
+            DestructiveSettingsRow(
+                icon: "arrow.counterclockwise.circle.fill",
+                title: "Reset All App Data",
+                subtitle: "Erase all Mira data stored on this device"
+            ) {
+                showingResetAllDataConfirmation = true
+            }
+            .accessibilityIdentifier("settings.resetAllData")
         }
     }
 
     private var appInfoSection: some View {
         SettingsSection(
             title: "App Info",
-            footer: "Legal and support URLs still need to be finalized before App Store submission."
+            footer: "Version, support, privacy, and legal information."
         ) {
             SettingsRow(
                 icon: "info.circle.fill",
@@ -167,6 +190,39 @@ struct SettingsView: View {
         } catch {
             clearHistoryErrorMessage = error.localizedDescription
             showingClearHistoryError = true
+        }
+    }
+
+    private func resetAllAppData() {
+        do {
+            try CoreDataManager.shared.clearAllData()
+            try OfflineProductCache.shared.clearLocalMetadata()
+            ImageCacheService.shared.clearCache()
+            URLCache.shared.removeAllCachedResponses()
+
+            let defaults = UserDefaults.standard
+            [
+                Constants.UserDefaults.shoppingListItems,
+                Constants.UserDefaults.recentSearches,
+                Constants.UserDefaults.hasSeenFirstScanEducation,
+                Constants.UserDefaults.hasSeenBalanceBanner,
+                Constants.UserDefaults.hasSeenInsightsUnlocked,
+                Constants.UserDefaults.lastSyncDate,
+                Constants.UserDefaults.appColorScheme,
+                Constants.UserDefaults.appTextSize,
+                Constants.UserDefaults.scanAnalytics
+            ].forEach(defaults.removeObject(forKey:))
+
+            dietaryRestrictions = []
+            appState.selectedTab = Tab.scan.rawValue
+            appState.updateOnboardingStatus(
+                healthFocus: HealthFocus.generalWellness.rawValue,
+                restrictions: [],
+                completed: false
+            )
+        } catch {
+            clearHistoryErrorMessage = error.localizedDescription
+            showingResetAllDataError = true
         }
     }
 }
@@ -354,6 +410,33 @@ struct AboutSheet: View {
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
                     }
+
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Label("Important health information", systemImage: "cross.case")
+                            .font(.headlineSmall)
+                            .foregroundColor(.textPrimary)
+
+                        Text("Mira provides general food and nutrition information, not medical advice. Product data can be incomplete or change over time, so verify packaging and allergen labels before making dietary decisions. Consult a qualified healthcare professional for personal medical guidance.")
+                            .bodyMediumStyle()
+                            .foregroundColor(.textSecondary)
+                    }
+                    .padding(Spacing.md)
+                    .background(Color.warning.opacity(0.10))
+                    .cornerRadius(CornerRadius.card)
+
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        Label("Privacy at a glance", systemImage: "hand.raised.fill")
+                            .font(.headlineSmall)
+                            .foregroundColor(.textPrimary)
+
+                        Text("Mira has no account, advertising, or cross-app tracking. Your profile, scans, favorites, shopping list, and scan diagnostics stay on this device. Barcode and search terms are sent to Open Food Facts or USDA only to retrieve product information. Camera access is used only for live barcode scanning. You can erase local data from Settings at any time.")
+                            .bodyMediumStyle()
+                            .foregroundColor(.textSecondary)
+                    }
+                    .padding(Spacing.md)
+                    .background(Color.backgroundSecondary)
+                    .cornerRadius(CornerRadius.card)
+                    .accessibilityIdentifier("about.privacySummary")
 
                     VStack(spacing: Spacing.sm) {
                         Text("Powered by")

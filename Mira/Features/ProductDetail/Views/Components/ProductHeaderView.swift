@@ -24,13 +24,13 @@ struct ProductHeaderView: View {
 
                 if let brand = product.brand, !brand.isEmpty {
                     Text(brand)
-                        .font(.bodyMedium)
-                        .foregroundColor(.textSecondary)
+                        .font(.subheadline)
+                        .foregroundColor(.textSubduedAccessible)
                 }
 
                 Text("Barcode: \(product.barcode)")
                     .font(.caption)
-                    .foregroundColor(.textTertiary)
+                    .foregroundColor(.textSubduedAccessible)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

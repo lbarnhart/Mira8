@@ -61,12 +61,11 @@ struct ProfileView: View {
             } message: {
                 Text(statsError ?? "")
             }
-            .accessibilityIdentifier("screen.profile")
         }
     }
 
     private var healthFocusCard: some View {
-        let option = HealthFocusOption.option(for: appState.healthFocus) ?? HealthFocusOption.all.last!
+        let option = HealthFocusOption.option(for: appState.healthFocus) ?? .defaultOption
 
         return Button {
             showHealthFocusSettings = true

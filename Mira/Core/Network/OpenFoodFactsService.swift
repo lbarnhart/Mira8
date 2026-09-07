@@ -499,11 +499,13 @@ private struct OpenFoodFactsProduct: Codable {
         nutriments = try container.decodeIfPresent(OpenFoodFactsNutriments.self, forKey: .nutriments)
         serving_size = try container.decodeIfPresent(String.self, forKey: .serving_size)
 
-        if let stringValue = try? container.decodeIfPresent(String.self, forKey: .serving_quantity) {
+        if !container.contains(.serving_quantity) || (try? container.decodeNil(forKey: .serving_quantity)) == true {
+            serving_quantity = nil
+        } else if let stringValue = try? container.decode(String.self, forKey: .serving_quantity) {
             serving_quantity = stringValue
-        } else if let doubleValue = try? container.decodeIfPresent(Double.self, forKey: .serving_quantity) {
+        } else if let doubleValue = try? container.decode(Double.self, forKey: .serving_quantity) {
             serving_quantity = String(doubleValue)
-        } else if let intValue = try? container.decodeIfPresent(Int.self, forKey: .serving_quantity) {
+        } else if let intValue = try? container.decode(Int.self, forKey: .serving_quantity) {
             serving_quantity = String(intValue)
         } else {
             #if DEBUG
@@ -538,6 +540,8 @@ private struct OpenFoodFactsNutriments: Codable {
     let carbohydrates: Double?
     let fat_100g: Double?
     let fat: Double?
+    let saturatedFat_100g: Double?
+    let saturatedFat: Double?
     let fiber_100g: Double?
     let fiber: Double?
     let sugars_100g: Double?
@@ -548,6 +552,23 @@ private struct OpenFoodFactsNutriments: Codable {
     let sodium: Double?
     let cholesterol_100g: Double?
     let cholesterol: Double?
+    let vitaminA_100g: Double?
+    let vitaminC_100g: Double?
+    let vitaminD_100g: Double?
+    let vitaminE_100g: Double?
+    let vitaminK_100g: Double?
+    let thiamin_100g: Double?
+    let riboflavin_100g: Double?
+    let niacin_100g: Double?
+    let vitaminB6_100g: Double?
+    let folate_100g: Double?
+    let vitaminB12_100g: Double?
+    let calcium_100g: Double?
+    let iron_100g: Double?
+    let magnesium_100g: Double?
+    let phosphorus_100g: Double?
+    let potassium_100g: Double?
+    let zinc_100g: Double?
 
     enum CodingKeys: String, CodingKey {
         case energy_100g = "energy_100g"
@@ -560,6 +581,8 @@ private struct OpenFoodFactsNutriments: Codable {
         case carbohydrates
         case fat_100g
         case fat
+        case saturatedFat_100g = "saturated-fat_100g"
+        case saturatedFat = "saturated-fat"
         case fiber_100g
         case fiber
         case sugars_100g
@@ -570,6 +593,23 @@ private struct OpenFoodFactsNutriments: Codable {
         case sodium
         case cholesterol_100g
         case cholesterol
+        case vitaminA_100g = "vitamin-a_100g"
+        case vitaminC_100g = "vitamin-c_100g"
+        case vitaminD_100g = "vitamin-d_100g"
+        case vitaminE_100g = "vitamin-e_100g"
+        case vitaminK_100g = "vitamin-k_100g"
+        case thiamin_100g = "vitamin-b1_100g"
+        case riboflavin_100g = "vitamin-b2_100g"
+        case niacin_100g = "vitamin-pp_100g"
+        case vitaminB6_100g = "vitamin-b6_100g"
+        case folate_100g = "vitamin-b9_100g"
+        case vitaminB12_100g = "vitamin-b12_100g"
+        case calcium_100g
+        case iron_100g
+        case magnesium_100g
+        case phosphorus_100g
+        case potassium_100g
+        case zinc_100g
     }
 }
 
@@ -660,6 +700,7 @@ private extension OpenFoodFactsService {
         nutritionalData.protein = nutriments.proteins_100g ?? nutriments.proteins ?? 0
         nutritionalData.carbohydrates = nutriments.carbohydrates_100g ?? nutriments.carbohydrates ?? 0
         nutritionalData.fat = nutriments.fat_100g ?? nutriments.fat ?? 0
+        nutritionalData.saturatedFat = nutriments.saturatedFat_100g ?? nutriments.saturatedFat ?? 0
         nutritionalData.fiber = nutriments.fiber_100g ?? nutriments.fiber ?? 0
         nutritionalData.sugar = nutriments.sugars_100g ?? nutriments.sugars ?? 0
 
@@ -673,13 +714,61 @@ private extension OpenFoodFactsService {
             nutritionalData.sodium = 0
         }
 
-        if let cholesterolMg = nutriments.cholesterol_100g ?? nutriments.cholesterol {
-            nutritionalData.cholesterol = cholesterolMg / 1000
+        // OFF normalized nutriment fields are expressed in grams per 100g,
+        // regardless of the unit originally entered on the package.
+        if let cholesterolGrams = nutriments.cholesterol_100g ?? nutriments.cholesterol {
+            nutritionalData.cholesterol = cholesterolGrams
         } else {
             nutritionalData.cholesterol = 0
         }
 
+        // Convert OFF's normalized gram values into Mira's display/scoring units.
+        nutritionalData.vitaminA = nutriments.vitaminA_100g.map(Self.gramsToMicrograms)
+        nutritionalData.vitaminC = nutriments.vitaminC_100g.map(Self.gramsToMilligrams)
+        nutritionalData.vitaminD = nutriments.vitaminD_100g.map(Self.gramsToMicrograms)
+        nutritionalData.vitaminE = nutriments.vitaminE_100g.map(Self.gramsToMilligrams)
+        nutritionalData.vitaminK = nutriments.vitaminK_100g.map(Self.gramsToMicrograms)
+        nutritionalData.thiamin = nutriments.thiamin_100g.map(Self.gramsToMilligrams)
+        nutritionalData.riboflavin = nutriments.riboflavin_100g.map(Self.gramsToMilligrams)
+        nutritionalData.niacin = nutriments.niacin_100g.map(Self.gramsToMilligrams)
+        nutritionalData.vitaminB6 = nutriments.vitaminB6_100g.map(Self.gramsToMilligrams)
+        nutritionalData.folate = nutriments.folate_100g.map(Self.gramsToMicrograms)
+        nutritionalData.vitaminB12 = nutriments.vitaminB12_100g.map(Self.gramsToMicrograms)
+        nutritionalData.calcium = nutriments.calcium_100g.map(Self.gramsToMilligrams)
+        nutritionalData.iron = nutriments.iron_100g.map(Self.gramsToMilligrams)
+        nutritionalData.magnesium = nutriments.magnesium_100g.map(Self.gramsToMilligrams)
+        nutritionalData.phosphorus = nutriments.phosphorus_100g.map(Self.gramsToMilligrams)
+        nutritionalData.potassium = nutriments.potassium_100g.map(Self.gramsToMilligrams)
+        nutritionalData.zinc = nutriments.zinc_100g.map(Self.gramsToMilligrams)
+
+        nutritionalData.availability = DataAvailability(
+            hasMacros: nutritionalData.calories > 0 || nutritionalData.protein > 0 || nutritionalData.fat > 0 || nutritionalData.carbohydrates > 0,
+            hasMicronutrients: [
+                nutritionalData.vitaminA, nutritionalData.vitaminC, nutritionalData.vitaminD,
+                nutritionalData.vitaminE, nutritionalData.vitaminK, nutritionalData.thiamin,
+                nutritionalData.riboflavin, nutritionalData.niacin, nutritionalData.vitaminB6,
+                nutritionalData.folate, nutritionalData.vitaminB12, nutritionalData.calcium,
+                nutritionalData.iron, nutritionalData.magnesium, nutritionalData.phosphorus,
+                nutritionalData.potassium, nutritionalData.zinc
+            ].contains(where: { $0 != nil }),
+            hasIngredients: false,
+            hasEnergy: nutriments.energy_kcal_100g != nil || nutriments.energyKcal != nil || nutriments.energy_100g != nil || nutriments.energy != nil,
+            hasSugar: nutriments.sugars_100g != nil || nutriments.sugars != nil,
+            hasSaturatedFat: nutriments.saturatedFat_100g != nil || nutriments.saturatedFat != nil,
+            hasSodium: nutriments.sodium_100g != nil || nutriments.sodium != nil || nutriments.salt_100g != nil || nutriments.salt != nil,
+            hasFiber: nutriments.fiber_100g != nil || nutriments.fiber != nil,
+            hasProtein: nutriments.proteins_100g != nil || nutriments.proteins != nil
+        )
+
         return nutritionalData
+    }
+
+    static func gramsToMilligrams(_ grams: Double) -> Double {
+        grams * 1_000
+    }
+
+    static func gramsToMicrograms(_ grams: Double) -> Double {
+        grams * 1_000_000
     }
 
     func parseIngredients(_ ingredientsText: String?) -> [String] {
@@ -925,15 +1014,25 @@ private extension OpenFoodFactsService {
     }
 
     func extractServingSizeUnit(_ servingSize: String?) -> String {
-        guard let servingSize = servingSize else { return "g" }
+        guard let servingSize else { return "g" }
 
-        // Extract unit from serving size string
-        let units = ["ml", "l", "g", "kg", "oz", "lb", "cup", "tbsp", "tsp"]
+        let unitPatterns: [(unit: String, pattern: String)] = [
+            ("ml", #"\b(?:ml|milliliters?|millilitres?)\b"#),
+            ("kg", #"\b(?:kg|kilograms?)\b"#),
+            ("l", #"\b(?:l|liters?|litres?)\b"#),
+            ("g", #"\b(?:g|grams?)\b"#),
+            ("oz", #"\b(?:oz|ounces?)\b"#),
+            ("lb", #"\b(?:lb|pounds?)\b"#),
+            ("tbsp", #"\b(?:tbsp|tablespoons?)\b"#),
+            ("tsp", #"\b(?:tsp|teaspoons?)\b"#),
+            ("cup", #"\bcups?\b"#)
+        ]
 
-        for unit in units {
-            if servingSize.lowercased().contains(unit) {
-                return unit
-            }
+        for candidate in unitPatterns where servingSize.range(
+            of: candidate.pattern,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil {
+            return candidate.unit
         }
 
         return "g" // Default to grams

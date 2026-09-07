@@ -129,7 +129,7 @@ struct HealthScoreCard: View {
             Spacer()
 
             // Score Number
-            Text("\(Int(score.overall))")
+            Text("\(Int(score.overall.rounded()))")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundColor(verdictColor)
         }
@@ -215,7 +215,7 @@ struct SecondaryStatsRow: View {
     var body: some View {
         HStack(spacing: Spacing.xl) {
             SecondaryStatItem(label: "Sugar", value: "\(Int(nutrition.sugar))g")
-            SecondaryStatItem(label: "Sodium", value: "\(Int(nutrition.sodium * 1000))mg")
+            SecondaryStatItem(label: "Sodium", value: "\(Int(nutrition.sodiumMilligrams))mg")
             SecondaryStatItem(label: "Ingredients", value: "\(max(ingredientCount, 1))")
         }
         .padding(.vertical, Spacing.sm)

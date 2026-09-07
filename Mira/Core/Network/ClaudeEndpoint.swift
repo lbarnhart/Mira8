@@ -82,10 +82,6 @@ struct ClaudeMessage: Codable {
         self.content = [.text(text)]
     }
 
-    init(role: ClaudeRole, content: [ClaudeContent]) {
-        self.role = role
-        self.content = content
-    }
 }
 
 enum ClaudeRole: String, Codable {
@@ -95,28 +91,10 @@ enum ClaudeRole: String, Codable {
 
 enum ClaudeContent: Codable {
     case text(String)
-    case image(source: ImageSource)
-
-    struct ImageSource: Codable {
-        let type: String
-        let mediaType: String
-        let data: String
-
-        enum CodingKeys: String, CodingKey {
-            case type
-            case mediaType = "media_type"
-            case data
-        }
-
-        static func base64(mediaType: String, data: String) -> ImageSource {
-            ImageSource(type: "base64", mediaType: mediaType, data: data)
-        }
-    }
 
     enum CodingKeys: String, CodingKey {
         case type
         case text
-        case source
     }
 
     func encode(to encoder: Encoder) throws {
@@ -125,9 +103,6 @@ enum ClaudeContent: Codable {
         case .text(let text):
             try container.encode("text", forKey: .type)
             try container.encode(text, forKey: .text)
-        case .image(let source):
-            try container.encode("image", forKey: .type)
-            try container.encode(source, forKey: .source)
         }
     }
 
@@ -138,9 +113,6 @@ enum ClaudeContent: Codable {
         case "text":
             let text = try container.decode(String.self, forKey: .text)
             self = .text(text)
-        case "image":
-            let source = try container.decode(ImageSource.self, forKey: .source)
-            self = .image(source: source)
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "Unknown content type: \(type)")
         }

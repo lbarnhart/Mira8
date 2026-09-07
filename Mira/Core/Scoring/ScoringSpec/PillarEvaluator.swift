@@ -89,7 +89,7 @@ final class PillarEvaluator {
         let contribution: NutrientContribution
     }
 
-    func evaluate(input: ScoringInput) -> PillarEvaluation {
+    func evaluate(input: ScoringInput, healthFocus: HealthFocus) -> PillarEvaluation {
         let energyKJValue = normalizedValue(\.calories, input: input).map { $0 * 4.184 }
         let sugarValue = normalizedValue(\.sugar, input: input)
         let saturatedFatValue = normalizedValue(\.saturatedFat, input: input)
@@ -98,7 +98,7 @@ final class PillarEvaluator {
         let proteinValue = normalizedValue(\.protein, input: input)
 
         let normalizedProduct = NormalizedProduct(input: input)
-        var weightProfile = WeightProfile.profile(for: normalizedProduct)
+        var weightProfile = WeightProfile.profile(for: normalizedProduct, healthFocus: healthFocus)
         let lensApplied = lensAdjuster.apply(profile: &weightProfile, product: normalizedProduct)
         let originalTotalWeight = weightProfile.totalWeight()
 
@@ -222,7 +222,15 @@ final class PillarEvaluator {
         let rawPositive = scaledPositive.rawTotal
         let weightedNegative = scaledNegative.weightedTotal
         let weightedPositive = scaledPositive.weightedTotal
-        let baseScore = 40 + weightedPositive - weightedNegative
+        // Negative pillars represent the share of the score retained when a
+        // product avoids the corresponding risks. Positive pillars earn their
+        // share as qualifying nutrients are present. This is equivalent to a
+        // weighted average of four 0...100 pillar-quality scores and keeps
+        // every configured pillar bounded by its declared percentage weight.
+        let negativePillarBaseline = negativeComponents
+            .filter { $0.blueprint.dataAvailable }
+            .reduce(0.0) { $0 + $1.blueprint.weight }
+        let baseScore = negativePillarBaseline + weightedPositive - weightedNegative
 
         let missingCritical = determineMissingCriticalNutrients(from: subcomponents)
 
@@ -510,7 +518,12 @@ final class PillarEvaluator {
         for (index, component) in components.enumerated() {
             let blueprint = component.blueprint
             let raw = blueprint.dataAvailable ? rawInts[index] : 0
-            let weighted = Double(raw) * blueprint.weight
+            let weighted: Double
+            if blueprint.maxPoints > 0 {
+                weighted = (Double(raw) / Double(blueprint.maxPoints)) * blueprint.weight
+            } else {
+                weighted = 0
+            }
             weightedTotal += weighted
 
             let contribution = NutrientContribution(

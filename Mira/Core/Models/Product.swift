@@ -1,5 +1,12 @@
 import Foundation
 
+enum NutritionBasis: String, Codable, Sendable {
+    /// Source values normalized per 100 g for foods or per 100 mL for beverages.
+    /// The raw value is retained for persistence compatibility.
+    case per100Grams
+    case perServing
+}
+
 // MARK: - External/API Product Model
 // This model is used by network services (USDA/OpenFoodFacts) to represent
 // fetched products before they are converted to the app's internal models.
@@ -13,6 +20,7 @@ struct APIProduct: Codable, Identifiable {
     let ingredients: [String]
     let rawIngredientsText: String?
     let nutritionalData: NutritionalData
+    let nutritionBasis: NutritionBasis
     let servingSize: Double?
     let servingSizeUnit: String
     let servingSizeDisplay: String?  // Raw serving size text from data source (e.g., "2 tbsp (30 g)")
@@ -33,6 +41,7 @@ struct APIProduct: Codable, Identifiable {
         ingredients: [String],
         rawIngredientsText: String? = nil,
         nutritionalData: NutritionalData,
+        nutritionBasis: NutritionBasis = .per100Grams,
         servingSize: Double? = nil,
         servingSizeUnit: String = "g",
         servingSizeDisplay: String? = nil,
@@ -52,6 +61,7 @@ struct APIProduct: Codable, Identifiable {
         self.ingredients = ingredients
         self.rawIngredientsText = rawIngredientsText
         self.nutritionalData = nutritionalData
+        self.nutritionBasis = nutritionBasis
         self.servingSize = servingSize
         self.servingSizeUnit = servingSizeUnit
         self.servingSizeDisplay = servingSizeDisplay
@@ -73,7 +83,7 @@ struct NutritionalData: Codable {
     var saturatedFat: Double
     var fiber: Double
     var sugar: Double
-    var sodium: Double
+    var sodium: Double // grams
     var cholesterol: Double
 
     // Micronutrients (optional)
@@ -95,6 +105,8 @@ struct NutritionalData: Codable {
     var potassium: Double?
     var zinc: Double?
     var availability: DataAvailability?
+
+    var sodiumMilligrams: Double { sodium * 1_000 }
 
     init(
         calories: Double = 0,
@@ -177,6 +189,7 @@ struct ProductModel: Identifiable, Codable {
     var rawIngredientsText: String?
     var nutriScore: String?
     var fruitVegEstimate: FruitVegEstimate = .unknown
+    var dataSource: ProductSource? = nil
 
     /// Determine if product is likely a beverage based on category
     var isLikelyBeverage: Bool {
@@ -194,11 +207,13 @@ struct ProductNutrition: Codable {
     var saturatedFat: Double
     var fiber: Double
     var sugar: Double
-    var sodium: Double
+    var sodium: Double // grams
     var cholesterol: Double
     var servingSize: String
     var labelServingSize: String?
     var availability: DataAvailability?
+
+    var sodiumMilligrams: Double { sodium * 1_000 }
 
     // Micronutrients (optional, may not be available for all products)
     var vitaminA: Double?      // mcg
@@ -380,11 +395,71 @@ struct ProductNutrition: Codable {
     }
 }
 
+extension ProductNutrition {
+    /// Complete conversion from API/persistence nutrition into the display model.
+    init(from nutritionalData: NutritionalData, servingSize: String) {
+        self.init(
+            calories: nutritionalData.calories,
+            protein: nutritionalData.protein,
+            carbohydrates: nutritionalData.carbohydrates,
+            fat: nutritionalData.fat,
+            saturatedFat: nutritionalData.saturatedFat,
+            fiber: nutritionalData.fiber,
+            sugar: nutritionalData.sugar,
+            sodium: nutritionalData.sodium,
+            cholesterol: nutritionalData.cholesterol,
+            servingSize: servingSize,
+            labelServingSize: servingSize,
+            vitaminA: nutritionalData.vitaminA,
+            vitaminC: nutritionalData.vitaminC,
+            vitaminD: nutritionalData.vitaminD,
+            vitaminE: nutritionalData.vitaminE,
+            vitaminK: nutritionalData.vitaminK,
+            thiamin: nutritionalData.thiamin,
+            riboflavin: nutritionalData.riboflavin,
+            niacin: nutritionalData.niacin,
+            vitaminB6: nutritionalData.vitaminB6,
+            folate: nutritionalData.folate,
+            vitaminB12: nutritionalData.vitaminB12,
+            calcium: nutritionalData.calcium,
+            iron: nutritionalData.iron,
+            magnesium: nutritionalData.magnesium,
+            phosphorus: nutritionalData.phosphorus,
+            potassium: nutritionalData.potassium,
+            zinc: nutritionalData.zinc,
+            availability: nutritionalData.availability
+        )
+    }
+}
+
 /// Indicates what nutrition data is available for a product
 struct DataAvailability: Codable {
     var hasMacros: Bool = false
     var hasMicronutrients: Bool = false
     var hasIngredients: Bool = false
+    var hasEnergy: Bool? = nil
+    var hasSugar: Bool? = nil
+    var hasSaturatedFat: Bool? = nil
+    var hasSodium: Bool? = nil
+    var hasFiber: Bool? = nil
+    var hasProtein: Bool? = nil
+
+    var hasExplicitScoringFields: Bool {
+        [hasEnergy, hasSugar, hasSaturatedFat, hasSodium, hasFiber, hasProtein]
+            .contains { $0 != nil }
+    }
+
+    static let completeNutritionLabel = DataAvailability(
+        hasMacros: true,
+        hasMicronutrients: false,
+        hasIngredients: false,
+        hasEnergy: true,
+        hasSugar: true,
+        hasSaturatedFat: true,
+        hasSodium: true,
+        hasFiber: true,
+        hasProtein: true
+    )
 }
 
 // MARK: - Nutrient Availability (for scoring)
@@ -607,9 +682,67 @@ enum DietaryRestriction: String, CaseIterable, Codable {
 
 // MARK: - Extensions
 extension APIProduct {
-    var servingSizeInGrams: Double? {
-        guard !servingSizeUnit.isEmpty else { return servingSize }
-        return servingSizeUnit.lowercased().hasPrefix("g") ? servingSize : nil
+    /// Serving amount expressed in the source's 100-unit reference basis.
+    /// Open Food Facts reports foods per 100 g and beverages per 100 mL, so
+    /// volume servings can be scaled directly without assuming a density.
+    var servingSizeInReferenceUnits: Double? {
+        guard let servingSize, servingSize > 0 else { return nil }
+
+        switch servingSizeUnit.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "", "g", "gram", "grams", "ml", "milliliter", "milliliters", "millilitre", "millilitres":
+            return servingSize
+        case "kg", "kilogram", "kilograms", "l", "liter", "liters", "litre", "litres":
+            return servingSize * 1_000
+        case "oz", "ounce", "ounces":
+            return servingSize * 28.3495
+        default:
+            return nil
+        }
+    }
+
+    /// Nutrition values suitable for the serving displayed to the user.
+    /// Network sources must declare whether their values are per-100g or already per-serving.
+    var nutritionalDataForDisplayedServing: NutritionalData {
+        switch nutritionBasis {
+        case .per100Grams:
+            let multiplier = (servingSizeInReferenceUnits ?? 100) / 100
+            return nutritionalData.scaled(by: multiplier)
+        case .perServing:
+            return nutritionalData
+        }
+    }
+
+    /// Human-readable serving label that stays consistent with the nutrition basis.
+    var servingSizeLabelForDisplay: String {
+        if let display = servingSizeDisplay?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !display.isEmpty {
+            return display
+        }
+
+        if let servingSize, servingSize > 0 {
+            return "\(servingSize.formatted(.number.precision(.fractionLength(0...1)))) \(servingSizeUnit)"
+        }
+
+        return nutritionBasis == .perServing ? "1 serving" : "100g"
+    }
+
+    /// Converts this product's nutrition to another basis when the required serving mass is known.
+    func nutritionalData(
+        convertedTo targetBasis: NutritionBasis,
+        targetServingSizeInReferenceUnits: Double? = nil
+    ) -> NutritionalData? {
+        guard nutritionBasis != targetBasis else { return nutritionalData }
+
+        switch (nutritionBasis, targetBasis) {
+        case (.per100Grams, .perServing):
+            guard let referenceUnits = targetServingSizeInReferenceUnits, referenceUnits > 0 else { return nil }
+            return nutritionalData.scaled(by: referenceUnits / 100)
+        case (.perServing, .per100Grams):
+            guard let referenceUnits = servingSizeInReferenceUnits, referenceUnits > 0 else { return nil }
+            return nutritionalData.scaled(by: 100 / referenceUnits)
+        default:
+            return nutritionalData
+        }
     }
 
     var displayServingSize: String {
@@ -649,10 +782,29 @@ extension NutritionalData {
             protein: protein * multiplier,
             carbohydrates: carbohydrates * multiplier,
             fat: fat * multiplier,
+            saturatedFat: saturatedFat * multiplier,
             fiber: fiber * multiplier,
             sugar: sugar * multiplier,
             sodium: sodium * multiplier,
-            cholesterol: cholesterol * multiplier
+            cholesterol: cholesterol * multiplier,
+            vitaminA: vitaminA.map { $0 * multiplier },
+            vitaminC: vitaminC.map { $0 * multiplier },
+            vitaminD: vitaminD.map { $0 * multiplier },
+            vitaminE: vitaminE.map { $0 * multiplier },
+            vitaminK: vitaminK.map { $0 * multiplier },
+            thiamin: thiamin.map { $0 * multiplier },
+            riboflavin: riboflavin.map { $0 * multiplier },
+            niacin: niacin.map { $0 * multiplier },
+            vitaminB6: vitaminB6.map { $0 * multiplier },
+            folate: folate.map { $0 * multiplier },
+            vitaminB12: vitaminB12.map { $0 * multiplier },
+            calcium: calcium.map { $0 * multiplier },
+            iron: iron.map { $0 * multiplier },
+            magnesium: magnesium.map { $0 * multiplier },
+            phosphorus: phosphorus.map { $0 * multiplier },
+            potassium: potassium.map { $0 * multiplier },
+            zinc: zinc.map { $0 * multiplier },
+            availability: availability
         )
     }
 

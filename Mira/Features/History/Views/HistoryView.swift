@@ -5,10 +5,10 @@ struct HistoryView: View {
     @StateObject private var viewModel = HistoryViewModel()
     @EnvironmentObject private var appState: AppState
     @State private var favoriteStatuses: [String: Bool] = [:]
-    @State private var showFullInsights = false
+    @State private var navigationPath: [String] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             Group {
                 if viewModel.items.isEmpty {
                     EmptyStateView(
@@ -20,20 +20,6 @@ struct HistoryView: View {
                     .accessibilityIdentifier("history.empty")
                 } else {
                     List {
-                        // Pattern Insights Banner
-                        if !viewModel.patterns.isEmpty {
-                            Section {
-                                PatternInsightsBanner(
-                                    patterns: viewModel.patterns,
-                                    onViewInsights: {
-                                        showFullInsights = true
-                                    }
-                                )
-                            }
-                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                            .listRowBackground(Color.clear)
-                        }
-
                         // Average Score Header
                         if let avgScore = viewModel.averageRecentScore {
                             Section {
@@ -50,6 +36,8 @@ struct HistoryView: View {
                     .listStyle(.insetGrouped)
                     .scrollContentBackground(.hidden)
                     .background(Color.backgroundPrimary)
+                    .padding(.bottom, Size.tabBarHeight)
+                    .clipped()
                 }
             }
             .navigationTitle("History")
@@ -72,16 +60,9 @@ struct HistoryView: View {
             .onChange(of: favoriteStatusTrigger) { _ in
                 loadFavoriteStatuses()
             }
-            .sheet(isPresented: $showFullInsights) {
-                FullInsightsSheet(
-                    patterns: viewModel.patterns,
-                    timeframe: viewModel.selectedTimeframe,
-                    onTimeframeChange: { newTimeframe in
-                        viewModel.updateTimeframe(newTimeframe)
-                    }
-                )
+            .navigationDestination(for: String.self) { barcode in
+                ProductDetailView(barcode: barcode)
             }
-            .accessibilityIdentifier("screen.history")
         }
     }
 
@@ -196,19 +177,32 @@ struct HistoryView: View {
 
     @ViewBuilder
     private func sectionView(for section: HistorySectionData) -> some View {
-        Section(section.title) {
-            ForEach(section.items) { item in
-                NavigationLink {
-                    ProductDetailView(barcode: item.product.barcode)
-                } label: {
-                    HistoryRow(
-                        item: item,
-                        isFavorite: favoriteStatuses[item.product.barcode] ?? false,
-                        onToggleFavorite: {
-                            toggleFavorite(item.product)
-                        }
+        Section {
+            Text(section.title)
+                .font(.headline)
+                .foregroundColor(.textPrimary)
+                .listRowInsets(
+                    EdgeInsets(
+                        top: Spacing.lg,
+                        leading: Spacing.md,
+                        bottom: Spacing.sm,
+                        trailing: Spacing.md
                     )
-                }
+                )
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+
+            ForEach(section.items) { item in
+                HistoryRow(
+                    item: item,
+                    isFavorite: favoriteStatuses[item.product.barcode] ?? false,
+                    onSelect: {
+                        navigationPath.append(item.product.barcode)
+                    },
+                    onToggleFavorite: {
+                        toggleFavorite(item.product)
+                    }
+                )
                 .accessibilityIdentifier("history.row.\(item.product.barcode)")
                 .swipeActions(edge: .trailing) {
                     Button(role: .destructive) {
@@ -232,7 +226,9 @@ private struct HistorySectionData: Identifiable {
 private struct HistoryRow: View {
     let item: HistoryItem
     let isFavorite: Bool
+    let onSelect: () -> Void
     let onToggleFavorite: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         HStack(alignment: .center, spacing: Spacing.md) {
@@ -241,48 +237,67 @@ private struct HistoryRow: View {
             } label: {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
                     .font(.body)
-                    .foregroundColor(isFavorite ? .red : .gray)
+                    .foregroundColor(isFavorite ? .red : .textSubduedAccessible)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
 
-            AsyncProductImage(
-                url: item.product.thumbnailURL ?? item.product.imageURL,
-                size: .small,
-                cornerRadius: CornerRadius.button
-            )
+            Button(action: onSelect) {
+                HStack(alignment: .center, spacing: Spacing.md) {
+                    AsyncProductImage(
+                        url: item.product.thumbnailURL ?? item.product.imageURL,
+                        size: .small,
+                        cornerRadius: CornerRadius.button
+                    )
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(productName)
-                    .font(.body.weight(.semibold))
-                    .foregroundColor(.textPrimary)
-                    .lineLimit(2)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text(productName)
+                            .font(.body.weight(.semibold))
+                            .foregroundColor(.textPrimary)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
 
-                if let brand = productBrand, !brand.isEmpty {
-                    Text(brand)
-                        .font(.caption)
-                        .foregroundColor(.textSecondary)
+                        if let brand = productBrand, !brand.isEmpty {
+                            Text(brand)
+                                .font(.caption)
+                                .foregroundColor(.textPrimary)
+                        }
+
+                        Text(scanDateString)
+                            .font(.caption)
+                            .foregroundColor(.textPrimary)
+
+                        #if DEBUG
+                        if item.hasHealthFocusChanged {
+                            Text("Rescored for \(item.currentHealthFocus)")
+                                .font(.caption2)
+                                .foregroundColor(.primaryBlue)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.primaryBlue.opacity(0.1))
+                                .cornerRadius(CornerRadius.pill)
+                        }
+                        #endif
+                    }
+
+                    Spacer()
+
+                    Text("\(item.currentScore)")
+                        .font(.headline.weight(.bold))
+                        .monospacedDigit()
+                        .foregroundColor(Color.scoreColor(for: Double(item.currentScore)))
+                        .fixedSize(horizontal: true, vertical: false)
+                        .accessibilityLabel("Mira score")
+                        .accessibilityValue("\(item.currentScore) out of 100")
+
+                    Image(systemName: "chevron.right")
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(.textSubduedAccessible)
+                        .accessibilityHidden(true)
                 }
-
-                Text(scanDateString)
-                    .font(.caption)
-                    .foregroundColor(.textTertiary)
-
-                #if DEBUG
-                if item.hasHealthFocusChanged {
-                    Text("Rescored for \(item.currentHealthFocus)")
-                        .font(.caption2)
-                        .foregroundColor(.primaryBlue)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.primaryBlue.opacity(0.1))
-                        .cornerRadius(CornerRadius.pill)
-                }
-                #endif
+                .contentShape(Rectangle())
             }
-
-            Spacer()
-
-            ScoreGauge(score: Double(item.currentScore), size: 44, style: .minimal)
+            .buttonStyle(.plain)
         }
         .padding(.vertical, Spacing.sm)
         .accessibilityIdentifier("history.item.\(item.product.barcode)")
@@ -320,18 +335,19 @@ private struct AverageScoreHeader: View {
             HStack(spacing: Spacing.sm) {
                 Text("Average Score")
                     .font(.subheadline)
-                    .foregroundColor(.textSecondary)
+                    .foregroundColor(.textPrimary)
 
                 Spacer()
 
                 Text("\(Int(averageScore.rounded()))")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(.title3.weight(.bold))
+                    .monospacedDigit()
                     .foregroundColor(scoreColor)
             }
 
             Text("Last 30 days")
-                .font(.caption2)
-                .foregroundColor(.textTertiary)
+                .font(.caption)
+                .foregroundColor(.textSubduedAccessible)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.xs)

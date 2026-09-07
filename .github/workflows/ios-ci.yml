@@ -1,0 +1,108 @@
+name: iOS CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+  PROJECT: Mira.xcodeproj
+  SCHEME: Mira 8
+
+jobs:
+  unit-and-release:
+    name: Unit tests and Release build
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Verify toolchain
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Prepare iOS simulator
+        run: bash .github/scripts/prepare-ios-simulator.sh
+
+      - name: Run unit and integration tests
+        run: |
+          xcodebuild test \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Debug \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/MiraUnitDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/MiraUnitTests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            -parallel-testing-enabled NO \
+            -only-testing:'Mira 8Tests'
+
+      - name: Build Release configuration
+        run: |
+          xcodebuild clean build \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/MiraReleaseDerivedData" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload unit-test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-diagnostics
+          path: ${{ runner.temp }}/MiraUnitTests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  ui-tests:
+    name: Functional UI tests
+    runs-on: macos-26
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Verify toolchain
+        run: xcodebuild -version
+
+      - name: Prepare iOS simulator
+        run: bash .github/scripts/prepare-ios-simulator.sh
+
+      - name: Run functional and launch UI tests
+        run: |
+          xcodebuild test \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Debug \
+            -destination "$SIMULATOR_DESTINATION" \
+            -derivedDataPath "$RUNNER_TEMP/MiraUIDerivedData" \
+            -resultBundlePath "$RUNNER_TEMP/MiraUITests.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            -parallel-testing-enabled NO \
+            -skip-testing:'Mira 8UITests/MiraAppStoreScreenshotTests' \
+            -only-testing:'Mira 8UITests'
+
+      - name: Upload UI-test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-diagnostics
+          path: ${{ runner.temp }}/MiraUITests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

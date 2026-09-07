@@ -1,7 +1,7 @@
 import Foundation
 import os
 
-enum LogCategory: String {
+enum LogCategory: String, CaseIterable {
     case general
     case network
     case scanner
@@ -12,15 +12,14 @@ enum LogCategory: String {
 
 struct AppLog {
     private static let subsystem = "com.mira8.app"
-    private static var cache = [LogCategory: Logger]()
+    private static let cache = Dictionary(
+        uniqueKeysWithValues: LogCategory.allCases.map {
+            ($0, Logger(subsystem: subsystem, category: $0.rawValue))
+        }
+    )
 
     private static func logger(for category: LogCategory) -> Logger {
-        if let existing = cache[category] {
-            return existing
-        }
-        let logger = Logger(subsystem: subsystem, category: category.rawValue)
-        cache[category] = logger
-        return logger
+        cache[category] ?? Logger(subsystem: subsystem, category: category.rawValue)
     }
 
     static func debug(_ message: String, category: LogCategory = .general) {
@@ -36,10 +35,10 @@ struct AppLog {
     }
 
     static func warning(_ message: String, category: LogCategory = .general) {
-        logger(for: category).warning("\(message, privacy: .public)")
+        logger(for: category).warning("\(message, privacy: .private)")
     }
 
     static func error(_ message: String, category: LogCategory = .general) {
-        logger(for: category).error("\(message, privacy: .public)")
+        logger(for: category).error("\(message, privacy: .private)")
     }
 }

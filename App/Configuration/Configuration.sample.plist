@@ -7,12 +7,14 @@
 	<key>ClaudeAPIKey</key>
 	<string></string>
 	<key>PrivacyPolicyURL</key>
-	<string></string>
+	<string>https://lbarnhart.github.io/Mira8/privacy/</string>
 	<key>TermsOfServiceURL</key>
-	<string></string>
+	<string>https://lbarnhart.github.io/Mira8/terms/</string>
 	<key>HelpCenterURL</key>
-	<string></string>
+	<string>https://lbarnhart.github.io/Mira8/support/</string>
+	<key>MethodologyURL</key>
+	<string>https://lbarnhart.github.io/Mira8/methodology/</string>
 	<key>SupportEmail</key>
-	<string></string>
+	<string>barnhartl91@gmail.com</string>
 </dict>
 </plist>

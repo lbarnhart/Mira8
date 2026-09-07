@@ -287,8 +287,8 @@ struct ComparisonPageView: View {
                 
                 nutritionRow(
                     label: "Sodium",
-                    valueA: Int(currentProduct.nutrition.sodium.rounded()),
-                    valueB: Int((viewModel.secondProduct?.product.nutrition.sodium ?? 0).rounded()),
+                    valueA: Int((currentProduct.nutrition.sodium * 1_000).rounded()),
+                    valueB: Int(((viewModel.secondProduct?.product.nutrition.sodium ?? 0) * 1_000).rounded()),
                     unit: "mg"
                 )
             }
@@ -410,15 +410,15 @@ struct ComparisonPageView: View {
             do {
                 var apiProduct: APIProduct?
                 
-                // Try USDA first
+                // Prefer the exact Open Food Facts endpoint, then use USDA as fallback.
                 do {
-                    let usdaService = USDAService()
-                    apiProduct = try await usdaService.searchProductByBarcode(scanResult.barcode)
-                } catch {
-                    AppLog.warning("USDA lookup failed, trying Open Food Facts...", category: .general)
-                    // Fall back to Open Food Facts
                     let offService = OpenFoodFactsService()
                     apiProduct = try await offService.searchProductByBarcode(scanResult.barcode)
+                } catch {
+                    try Task.checkCancellation()
+                    AppLog.warning("Open Food Facts lookup failed, trying USDA...", category: .general)
+                    let usdaService = USDAService()
+                    apiProduct = try await usdaService.searchProductByBarcode(scanResult.barcode)
                 }
                 
                 guard let product = apiProduct else {
@@ -429,10 +429,10 @@ struct ComparisonPageView: View {
                 let productModel = makeProductModel(from: product)
                 
                 // Calculate health score for the product
-                let dietaryRestrictions = appState.dietaryRestrictions.compactMap { DietaryRestriction(rawValue: $0) }
+                let dietaryRestrictions = appState.dietaryRestrictions.compactMap { DietaryRestriction(from: $0) }
                 let score = ScoringEngine.shared.calculateHealthScore(
                     for: productModel,
-                    healthFocus: HealthFocus(rawValue: appState.healthFocus) ?? .generalWellness,
+                    healthFocus: HealthFocus(fromStored: appState.healthFocus),
                     dietaryRestrictions: dietaryRestrictions
                 )
                 
@@ -443,6 +443,8 @@ struct ComparisonPageView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                     showScanner = false
                 }
+            } catch is CancellationError {
+                return
             } catch {
                 AppLog.error("Failed to load scanned product: \(error)", category: .general)
                 // Close scanner on error
@@ -615,10 +617,10 @@ struct HistorySelectionView: View {
             nutriScore: nil
         )
         
-        let dietaryRestrictions = appState.dietaryRestrictions.compactMap { DietaryRestriction(rawValue: $0) }
+        let dietaryRestrictions = appState.dietaryRestrictions.compactMap { DietaryRestriction(from: $0) }
         let score = ScoringEngine.shared.calculateHealthScore(
             for: productModel,
-            healthFocus: HealthFocus(rawValue: appState.healthFocus) ?? .generalWellness,
+            healthFocus: HealthFocus(fromStored: appState.healthFocus),
             dietaryRestrictions: dietaryRestrictions
         )
 
@@ -662,17 +664,10 @@ private func makeProductModel(from apiProduct: APIProduct) -> ProductModel {
     let category = apiProduct.category
     let categorySlug = apiProduct.categorySlug
     let barcode = apiProduct.barcode
+    let displayedNutrition = apiProduct.nutritionalDataForDisplayedServing
     let nutrition = ProductNutrition(
-        calories: apiProduct.nutritionalData.calories,
-        protein: apiProduct.nutritionalData.protein,
-        carbohydrates: apiProduct.nutritionalData.carbohydrates,
-        fat: apiProduct.nutritionalData.fat,
-        saturatedFat: apiProduct.nutritionalData.saturatedFat,
-        fiber: apiProduct.nutritionalData.fiber,
-        sugar: apiProduct.nutritionalData.sugar,
-        sodium: apiProduct.nutritionalData.sodium,
-        cholesterol: apiProduct.nutritionalData.cholesterol,
-        servingSize: apiProduct.servingSizeDisplay ?? "100g"
+        from: displayedNutrition,
+        servingSize: apiProduct.servingSizeLabelForDisplay
     )
     let ingredients = apiProduct.ingredients
     let additives: [String] = []  // APIProduct doesn't have additives
@@ -702,6 +697,7 @@ private func makeProductModel(from apiProduct: APIProduct) -> ProductModel {
         createdAt: createdAt,
         updatedAt: updatedAt,
         isCached: isCached,
-        nutriScore: nutriScore
+        nutriScore: nutriScore,
+        dataSource: apiProduct.source
     )
 }

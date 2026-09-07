@@ -132,7 +132,7 @@ final class TierMapper {
             .joined(separator: ", ")
 
         var segments: [String] = []
-        segments.append("Score starts at 40, adds weighted positives, and subtracts weighted negatives.")
+        segments.append("Score combines four bounded nutrition pillars, preserving points for avoided risks and adding points for positive nutrition.")
 
         if !topPositive.isEmpty {
             segments.append("Top boosts: \(topPositive).")

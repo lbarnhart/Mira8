@@ -6,7 +6,7 @@ extension Color {
     // MARK: - Primary Brand Colors (Dark Mode Optimized)
     /// Ocean Teal - Primary brand color (auto-adjusts for dark mode)
     static var oceanTeal: Color {
-        Color(light: Color(hex: "2B9B96"), dark: Color(hex: "3DB5AE"))
+        Color(light: Color(hex: "0F6B68"), dark: Color(hex: "3DB5AE"))
     }
 
     /// Seafoam Green - Secondary brand color (auto-adjusts for dark mode)
@@ -57,22 +57,22 @@ extension Color {
     // MARK: - Score Colors (Dark Mode Optimized)
     /// Excellent score color (80-100) - adapts for dark mode
     static var scoreExcellent: Color {
-        Color(light: Color(hex: "34C759"), dark: Color(hex: "32D74B"))
+        Color(light: Color(hex: "0B6E4F"), dark: Color(hex: "32D74B"))
     }
 
     /// Good score color (60-79) - adapts for dark mode
     static var scoreGood: Color {
-        Color(light: Color(hex: "32D74B"), dark: Color(hex: "30DB5B"))
+        Color(light: Color(hex: "217A3C"), dark: Color(hex: "30DB5B"))
     }
 
     /// Fair score color (40-59) - adapts for dark mode
     static var scoreFair: Color {
-        Color(light: Color(hex: "FF9F0A"), dark: Color(hex: "FFB340"))
+        Color(light: Color(hex: "B54708"), dark: Color(hex: "FFB340"))
     }
 
     /// Poor score color (0-39) - adapts for dark mode
     static var scorePoor: Color {
-        Color(light: Color(hex: "FF453A"), dark: Color(hex: "FF5F54"))
+        Color(light: Color(hex: "B42318"), dark: Color(hex: "FF5F54"))
     }
 
     // MARK: - Background Colors (Auto dark mode support)
@@ -97,6 +97,10 @@ extension Color {
     static let textSecondary = Color(.secondaryLabel)
     static let textTertiary = Color(.tertiaryLabel)
     static let textQuaternary = Color(.quaternaryLabel)
+    /// Subdued supporting text that still meets WCAG AA contrast at small sizes.
+    static var textSubduedAccessible: Color {
+        Color(light: Color(hex: "64646A"), dark: Color(hex: "B8B8C0"))
+    }
     static let textOnDark = Color.white
     static let textOnLight = Color.black
 

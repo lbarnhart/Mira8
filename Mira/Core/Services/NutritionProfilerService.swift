@@ -42,7 +42,7 @@ actor NutritionProfilerService {
         }
 
         // Calculate averages
-        let averages = calculateAverages(from: products)
+        let averages = Self.calculateAverages(from: products)
 
         // Calculate gaps based on health focus targets
         let targets = HealthFocusTargets.targets(for: healthFocus)
@@ -108,7 +108,10 @@ actor NutritionProfilerService {
 
     // MARK: - Calculations
 
-    private func calculateAverages(from products: [Product]) -> NutritionAverages {
+    /// Returns per-product averages in the units exposed by `NutritionAverages`.
+    /// `NutritionalData.sodium` is stored in grams, while insights and their
+    /// health-focus thresholds use milligrams.
+    static func calculateAverages(from products: [Product]) -> NutritionAverages {
         guard !products.isEmpty else { return .zero }
 
         let count = Double(products.count)
@@ -119,7 +122,9 @@ actor NutritionProfilerService {
         let totalFat = products.reduce(0.0) { $0 + $1.nutritionalData.fat }
         let totalFiber = products.reduce(0.0) { $0 + $1.nutritionalData.fiber }
         let totalSugar = products.reduce(0.0) { $0 + $1.nutritionalData.sugar }
-        let totalSodium = products.reduce(0.0) { $0 + $1.nutritionalData.sodium }
+        let totalSodiumMilligrams = products.reduce(0.0) {
+            $0 + $1.nutritionalData.sodiumMilligrams
+        }
         let totalSatFat = products.reduce(0.0) { $0 + $1.nutritionalData.saturatedFat }
 
         return NutritionAverages(
@@ -129,7 +134,7 @@ actor NutritionProfilerService {
             fat: totalFat / count,
             fiber: totalFiber / count,
             sugar: totalSugar / count,
-            sodium: totalSodium / count,
+            sodium: totalSodiumMilligrams / count,
             saturatedFat: totalSatFat / count
         )
     }

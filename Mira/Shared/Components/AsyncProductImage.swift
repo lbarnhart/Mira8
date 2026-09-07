@@ -63,18 +63,18 @@ struct AsyncProductImage: View {
             }
         }
         .frame(width: dimension, height: dimension)
-        .background(Color.backgroundSecondary)
+        .background(Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                .stroke(Color.textSubduedAccessible, lineWidth: 1)
         )
     }
 
     private var placeholder: some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(Color.backgroundSecondary)
+                .fill(Color.clear)
 
             ProgressView()
                 .progressViewStyle(CircularProgressViewStyle(tint: .primaryBlue))
@@ -84,12 +84,12 @@ struct AsyncProductImage: View {
     private var fallback: some View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius)
-                .fill(Color.backgroundSecondary)
+                .fill(Color.clear)
 
-            Image("MiraLogo")
-                .resizable()
-                .scaledToFit()
-                .padding(size.dimension * 0.2)
+            Image(systemName: "leaf.fill")
+                .imageScale(.medium)
+                .foregroundColor(.deepForest)
+                .accessibilityHidden(true)
         }
     }
 }

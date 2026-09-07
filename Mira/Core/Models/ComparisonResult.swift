@@ -52,11 +52,7 @@ struct ComparisonResult {
     
     /// Detailed recommendation with reasoning
     var detailedRecommendation: String {
-        if keyDifferences.isEmpty {
-            return recommendation
-        }
-        
-        let topReason = keyDifferences.first!
+        guard let topReason = keyDifferences.first else { return recommendation }
         return "\(recommendation): \(topReason.description)"
     }
     
@@ -225,4 +221,3 @@ struct ComparisonFactor {
         isPositive ? "✓" : "✗"
     }
 }
-

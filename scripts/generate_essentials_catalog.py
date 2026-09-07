@@ -56,6 +56,22 @@ def parse_ingredients(ingredients_text: str) -> List[str]:
     return ingredients[:20]  # Limit to first 20 ingredients
 
 
+def has_plausible_nutrition(nutrition: Dict[str, float]) -> bool:
+    """Reject malformed per-100g records instead of poisoning offline scores."""
+    bounded_grams = ('protein', 'carbohydrates', 'fat', 'saturatedFat', 'fiber', 'sugar', 'sodium')
+    if not 0 <= nutrition['calories'] <= 900:
+        return False
+    if any(not 0 <= nutrition[key] <= 100 for key in bounded_grams):
+        return False
+    if nutrition['saturatedFat'] > nutrition['fat'] + 0.01:
+        return False
+    # OFF exports missing nutrient values as empty strings, which parse to zero.
+    # Do not reject a record solely because total carbohydrate is unavailable.
+    if nutrition['carbohydrates'] > 0 and nutrition['sugar'] > nutrition['carbohydrates'] + 0.5:
+        return False
+    return True
+
+
 def process_product(row: Dict[str, str]) -> Optional[Dict[str, Any]]:
     """Process a single product row into our format."""
     barcode = row.get('code', '').strip()
@@ -74,11 +90,14 @@ def process_product(row: Dict[str, str]) -> Optional[Dict[str, Any]]:
         'saturatedFat': parse_nutrition_value(row.get('saturated-fat_100g', '')),
         'fiber': parse_nutrition_value(row.get('fiber_100g', '')),
         'sugar': parse_nutrition_value(row.get('sugars_100g', '')),
-        'sodium': parse_nutrition_value(row.get('sodium_100g', '')) / 1000  # Convert mg to g
+        # Open Food Facts normalized nutrient values use grams per 100g.
+        'sodium': parse_nutrition_value(row.get('sodium_100g', ''))
     }
 
     # Skip products with no nutrition data
     if nutrition['calories'] == 0 and nutrition['protein'] == 0 and nutrition['carbohydrates'] == 0:
+        return None
+    if not has_plausible_nutrition(nutrition):
         return None
 
     brand = row.get('brands', '').strip() or None
@@ -145,7 +164,7 @@ def main():
 
     # Create catalog
     catalog = {
-        'version': '1.0.0',
+        'version': '1.1.0',
         'generatedAt': datetime.now(timezone.utc).isoformat(),
         'productCount': len(top_products),
         'products': top_products

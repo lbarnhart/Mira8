@@ -46,7 +46,11 @@ final class ScoringEngine {
         dietaryRestrictions: [DietaryRestriction]
     ) -> HealthScore {
         // Generate cache key from barcode and health focus
-        let cacheKey = "\(product.barcode)_\(healthFocus.rawValue)"
+        let cacheKey = scoreCacheKey(
+            for: product,
+            healthFocus: healthFocus,
+            dietaryRestrictions: dietaryRestrictions
+        )
 
         // Check cache first
         cacheLock.lock()
@@ -68,6 +72,7 @@ final class ScoringEngine {
 
         let score = pipeline.score(
             for: product,
+            healthFocus: healthFocus,
             dietaryRestrictions: dietaryRestrictions
         )
 
@@ -95,6 +100,33 @@ final class ScoringEngine {
         cacheLock.lock()
         scoreCache.removeAll()
         cacheLock.unlock()
+    }
+
+    private func scoreCacheKey(
+        for product: ProductModel,
+        healthFocus: HealthFocus,
+        dietaryRestrictions: [DietaryRestriction]
+    ) -> String {
+        let nutrition = product.nutrition
+        let restrictions = dietaryRestrictions.map(\.rawValue).sorted().joined(separator: ",")
+        let ingredients = product.ingredients.map { $0.lowercased() }.joined(separator: ",")
+        let additives = product.additives.map { $0.lowercased() }.sorted().joined(separator: ",")
+        let processing = product.processingLevel.rawValue.description
+
+        return [
+            product.barcode,
+            healthFocus.rawValue,
+            restrictions,
+            product.category ?? "",
+            product.categorySlug ?? "",
+            processing,
+            String(nutrition.calories), String(nutrition.protein), String(nutrition.carbohydrates),
+            String(nutrition.fat), String(nutrition.saturatedFat), String(nutrition.fiber),
+            String(nutrition.sugar), String(nutrition.sodium), String(nutrition.cholesterol),
+            nutrition.servingSize,
+            ingredients,
+            additives
+        ].joined(separator: "|")
     }
 
     func checkDietaryViolations(

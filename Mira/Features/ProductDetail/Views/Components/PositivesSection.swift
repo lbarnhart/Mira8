@@ -60,6 +60,7 @@ struct PositivesSection: View {
     private var positives: [String] {
         var items: [String] = []
         let nutrition = product.nutrition
+        let sodiumMg = nutrition.sodiumMilligrams
 
         // High protein
         if nutrition.protein >= 10 {
@@ -81,10 +82,10 @@ struct PositivesSection: View {
         }
 
         // Low sodium
-        if nutrition.sodium < 200 {
-            items.append("Low in sodium (\(String(format: "%.0f", nutrition.sodium))mg)")
-        } else if nutrition.sodium < 400 {
-            items.append("Moderate sodium (\(String(format: "%.0f", nutrition.sodium))mg)")
+        if sodiumMg < 200 {
+            items.append("Low in sodium (\(String(format: "%.0f", sodiumMg))mg)")
+        } else if sodiumMg < 400 {
+            items.append("Moderate sodium (\(String(format: "%.0f", sodiumMg))mg)")
         }
 
         // Minimal processing (check score components)
@@ -128,6 +129,7 @@ struct PositivesSection: View {
     private var concerns: [String] {
         var items: [String] = []
         let nutrition = product.nutrition
+        let sodiumMg = nutrition.sodiumMilligrams
 
         // High sugar
         if nutrition.sugar >= 15 {
@@ -137,10 +139,10 @@ struct PositivesSection: View {
         }
 
         // High sodium
-        if nutrition.sodium >= 600 {
-            items.append("High in sodium (\(String(format: "%.0f", nutrition.sodium))mg)")
-        } else if nutrition.sodium >= 400 {
-            items.append("Moderate-high sodium (\(String(format: "%.0f", nutrition.sodium))mg)")
+        if sodiumMg >= 600 {
+            items.append("High in sodium (\(String(format: "%.0f", sodiumMg))mg)")
+        } else if sodiumMg >= 400 {
+            items.append("Moderate-high sodium (\(String(format: "%.0f", sodiumMg))mg)")
         }
 
         // High saturated fat

@@ -114,48 +114,6 @@ actor ClaudeService {
         }
     }
 
-    // MARK: - Vision (Image Analysis)
-
-    /// Analyze an image with Claude's vision capabilities.
-    /// - Parameters:
-    ///   - imageData: JPEG image data
-    ///   - prompt: The prompt describing what to analyze
-    ///   - systemPrompt: Optional system prompt
-    ///   - maxTokens: Maximum tokens in the response
-    /// - Returns: The text response from Claude
-    func analyzeImage(
-        imageData: Data,
-        prompt: String,
-        systemPrompt: String? = nil,
-        maxTokens: Int = Constants.Claude.maxTokensDefault
-    ) async throws -> String {
-        guard isConfigured else {
-            throw ClaudeError.notConfigured
-        }
-
-        let base64Image = imageData.base64EncodedString()
-
-        let content: [ClaudeContent] = [
-            .image(source: .base64(mediaType: "image/jpeg", data: base64Image)),
-            .text(prompt)
-        ]
-
-        let request = ClaudeRequest(
-            model: ClaudeModel.sonnet.modelId, // Vision requires Sonnet
-            maxTokens: maxTokens,
-            system: systemPrompt,
-            messages: [ClaudeMessage(role: .user, content: content)]
-        )
-
-        let response: ClaudeResponse = try await apiClient.request(ClaudeEndpoint.messages(request))
-
-        guard let text = response.content.first?.text else {
-            throw ClaudeError.emptyResponse
-        }
-
-        return text
-    }
-
     // MARK: - Helpers
 
     /// Extract JSON from a response that may contain markdown code blocks.

@@ -37,8 +37,8 @@ enum AppTextSize: String, CaseIterable, Identifiable {
 }
 
 struct AppearanceSettingsView: View {
-    @AppStorage("appColorScheme") private var colorScheme: AppColorScheme = .system
-    @AppStorage("appTextSize") private var textSize: AppTextSize = .medium
+    @AppStorage(Constants.UserDefaults.appColorScheme) private var colorScheme: AppColorScheme = .system
+    @AppStorage(Constants.UserDefaults.appTextSize) private var textSize: AppTextSize = .medium
     
     var body: some View {
         List {

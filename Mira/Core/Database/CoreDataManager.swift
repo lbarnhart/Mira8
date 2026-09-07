@@ -15,6 +15,7 @@ struct Product: Identifiable, Codable, Sendable {
     let thumbnailURL: String?
     var lastScanned: Date?
     var nutriScore: String?
+    var dataSource: ProductSource? = nil
 }
 
 enum CoreDataManagerError: LocalizedError {
@@ -165,6 +166,7 @@ final class CoreDataManager {
                     productEntity.imageURL = product.imageURL
                     productEntity.thumbnailURL = product.thumbnailURL ?? product.imageURL
                     productEntity.lastScanned = scanDate
+                    productEntity.dataSource = product.dataSource?.rawValue
                     productEntity.nutritionalData = try self.encodeNutritionalData(product.nutritionalData)
                     history.product = productEntity
                 }
@@ -420,7 +422,8 @@ final class CoreDataManager {
             imageURL: entity.imageURL,
             thumbnailURL: entity.thumbnailURL ?? entity.imageURL,
             lastScanned: entity.lastScanned,
-            nutriScore: entity.nutriScore
+            nutriScore: entity.nutriScore,
+            dataSource: entity.dataSource.flatMap(ProductSource.init(rawValue:))
         )
     }
 

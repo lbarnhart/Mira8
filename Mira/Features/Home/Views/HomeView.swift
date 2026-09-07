@@ -58,7 +58,7 @@ struct HomeView: View {
                         .foregroundColor(.textSecondary)
                 }
 
-                // TEMP: Image test button
+                #if DEBUG
                 Button("Test Image Fetch") {
                     Task {
                         await OpenFoodFactsService.shared.testImageFetch()
@@ -66,10 +66,11 @@ struct HomeView: View {
                 }
                 .font(.caption)
                 .foregroundColor(.primaryBlue)
+                #endif
 
                 Spacer()
 
-                // Recent Scans Section (placeholder)
+                // Recent Scans Section
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
                         Text("Recent Scans")
@@ -107,7 +108,9 @@ struct HomeView: View {
             }
         }
         .sheet(item: $selectedScanResult) { result in
-            ProductDetailPlaceholderView(barcode: result.barcode)
+            NavigationStack {
+                ProductDetailView(barcode: result.barcode)
+            }
         }
         .sheet(isPresented: $navigateToHistory) {
             HistoryView()
@@ -166,45 +169,6 @@ struct HomeView: View {
         .padding(32)
         .background(Color.backgroundSecondary)
         .cornerRadius(12)
-    }
-}
-
-// Temporary placeholder view for product details
-private struct ProductDetailPlaceholderView: View {
-    let barcode: String
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "barcode")
-                    .font(.system(size: 60))
-                    .foregroundColor(.primaryBlue)
-
-                Text("Product Detail")
-                    .font(.title)
-                    .fontWeight(.bold)
-
-                Text("Barcode: \(barcode)")
-                    .font(.body)
-                    .foregroundColor(.textSecondary)
-
-                Text("Full product details view coming soon!")
-                    .font(.caption)
-                    .foregroundColor(.textTertiary)
-                    .multilineTextAlignment(.center)
-                    .padding()
-            }
-            .navigationTitle("Product")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
     }
 }
 

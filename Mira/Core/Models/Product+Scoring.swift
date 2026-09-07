@@ -11,49 +11,14 @@ extension Product {
 
         // The stored nutritional data is per-serving (already scaled).
         // Normalize back to per-100g for scoring since thresholds are per-100g.
-        let servingGrams = extractServingGrams(from: servingSize) ?? 100.0
-        let normalizationFactor = servingGrams > 0 ? (100.0 / servingGrams) : 1.0
-        let normalizedNutrition = NutritionalData(
-            calories: nutritionalData.calories * normalizationFactor,
-            protein: nutritionalData.protein * normalizationFactor,
-            carbohydrates: nutritionalData.carbohydrates * normalizationFactor,
-            fat: nutritionalData.fat * normalizationFactor,
-            fiber: nutritionalData.fiber * normalizationFactor,
-            sugar: nutritionalData.sugar * normalizationFactor,
-            sodium: nutritionalData.sodium * normalizationFactor,
-            cholesterol: nutritionalData.cholesterol * normalizationFactor
+        let servingReferenceUnits = extractServingReferenceUnits(from: servingSize) ?? 100.0
+        let normalizationFactor = servingReferenceUnits > 0 ? (100.0 / servingReferenceUnits) : 1.0
+        let normalizedNutrition = nutritionalData.scaled(by: normalizationFactor)
+        var model = toProductModel(
+            nutritionalData: normalizedNutrition,
+            servingSize: "100g"
         )
-
-        let model = ProductModel(
-            id: UUID(uuidString: id) ?? UUID(),
-            name: name,
-            brand: brand,
-            category: category,
-            categorySlug: nil,
-            barcode: barcode,
-            nutrition: ProductNutrition(
-                calories: normalizedNutrition.calories,
-                protein: normalizedNutrition.protein,
-                carbohydrates: normalizedNutrition.carbohydrates,
-                fat: normalizedNutrition.fat,
-                fiber: normalizedNutrition.fiber,
-                sugar: normalizedNutrition.sugar,
-                sodium: normalizedNutrition.sodium,
-                cholesterol: normalizedNutrition.cholesterol,
-                servingSize: "100g"
-            ),
-            ingredients: ingredientList,
-            additives: [],
-            processingLevel: processingLevel,
-            dietaryFlags: [],
-            imageURL: imageURL,
-            thumbnailURL: thumbnailURL,
-            healthScore: 0,
-            createdAt: lastScanned ?? Date(),
-            updatedAt: lastScanned ?? Date(),
-            isCached: true,
-            rawIngredientsText: ingredients
-        )
+        model.processingLevel = processingLevel
 
         let focus = HealthFocus(fromStored: healthFocus)
         return ScoringEngine.shared.calculateHealthScore(
@@ -63,8 +28,8 @@ extension Product {
         )
     }
 
-    /// Extract serving size in grams from a serving size string like "28g", "1 oz (28g)", "2 tbsp (30 g)"
-    private func extractServingGrams(from servingSize: String?) -> Double? {
+    /// Extract a serving amount compatible with the source's 100 g/100 mL basis.
+    private func extractServingReferenceUnits(from servingSize: String?) -> Double? {
         guard let servingSize = servingSize else { return nil }
 
         let lowered = servingSize.lowercased()
@@ -77,7 +42,7 @@ extension Product {
             return Double(lowered[range])
         }
 
-        // Try to find a number followed by 'ml' for beverages (approximate 1ml = 1g)
+        // For beverages, values normalized per 100 mL scale directly by mL.
         let mlPattern = #"(\d+(?:\.\d+)?)\s*ml\b"#
         if let regex = try? NSRegularExpression(pattern: mlPattern, options: []),
            let match = regex.firstMatch(in: lowered, options: [], range: NSRange(lowered.startIndex..., in: lowered)),

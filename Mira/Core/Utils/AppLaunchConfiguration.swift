@@ -8,7 +8,11 @@ struct AppLaunchConfiguration {
         static let resetState = "-reset-state"
         static let completeOnboarding = "-complete-onboarding"
         static let seedDemoData = "-seed-demo-data"
+        static let seedDemoDataLimit = "-seed-demo-data-limit"
         static let selectedTab = "-selected-tab"
+        static let simulateCameraDenied = "-simulate-camera-denied"
+        static let simulateCameraAvailable = "-simulate-camera-available"
+        static let simulateScannedBarcode = "-simulate-scanned-barcode"
     }
 
     let arguments: [String]
@@ -27,6 +31,36 @@ struct AppLaunchConfiguration {
 
     var shouldSeedDemoData: Bool {
         arguments.contains(Argument.seedDemoData)
+    }
+
+    private var seedDemoDataLimit: Int? {
+        guard isUITesting,
+              let index = arguments.firstIndex(of: Argument.seedDemoDataLimit),
+              arguments.indices.contains(index + 1),
+              let limit = Int(arguments[index + 1]),
+              limit > 0 else {
+            return nil
+        }
+        return limit
+    }
+
+    var shouldSimulateCameraDenied: Bool {
+        isUITesting && arguments.contains(Argument.simulateCameraDenied)
+    }
+
+    var shouldSimulateCameraAvailable: Bool {
+        isUITesting && arguments.contains(Argument.simulateCameraAvailable)
+    }
+
+    var simulatedScannedBarcode: String? {
+        guard isUITesting,
+              let index = arguments.firstIndex(of: Argument.simulateScannedBarcode),
+              arguments.indices.contains(index + 1) else {
+            return nil
+        }
+
+        let barcode = arguments[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+        return barcode.isEmpty ? nil : barcode
     }
 
     var initialTab: Tab? {
@@ -81,7 +115,12 @@ struct AppLaunchConfiguration {
             Constants.UserDefaults.lastSyncDate,
             Constants.UserDefaults.shoppingListItems,
             Constants.UserDefaults.hasSeenFirstScanEducation,
-            Constants.UserDefaults.hasSeenBalanceBanner
+            Constants.UserDefaults.hasSeenBalanceBanner,
+            Constants.UserDefaults.hasSeenInsightsUnlocked,
+            Constants.UserDefaults.recentSearches,
+            Constants.UserDefaults.appColorScheme,
+            Constants.UserDefaults.appTextSize,
+            Constants.UserDefaults.scanAnalytics
         ]
 
         keys.forEach(defaults.removeObject(forKey:))
@@ -108,76 +147,81 @@ struct AppLaunchConfiguration {
             Product(
                 id: "ui-test-granola-1",
                 barcode: "900000000001",
-                name: "UI Test Granola",
-                brand: "Mira Labs",
+                name: "Harvest Oat Crunch",
+                brand: "Mira Demo",
                 category: "Breakfast",
-                nutritionalData: NutritionalData(calories: 210, protein: 8, carbohydrates: 24, fat: 9, fiber: 5, sugar: 6, sodium: 120),
+                nutritionalData: NutritionalData(calories: 210, protein: 8, carbohydrates: 24, fat: 9, fiber: 5, sugar: 6, sodium: 0.120, availability: .completeNutritionLabel),
                 ingredients: "Rolled oats, almonds, pumpkin seeds, maple syrup, sea salt",
                 servingSize: "1 cup (55 g)",
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now,
-                nutriScore: "A"
+                nutriScore: "A",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-yogurt-1",
                 barcode: "900000000002",
-                name: "UI Test Greek Yogurt",
-                brand: "Mira Labs",
+                name: "Plain Greek Yogurt",
+                brand: "Mira Demo",
                 category: "Dairy",
-                nutritionalData: NutritionalData(calories: 130, protein: 15, carbohydrates: 8, fat: 3, fiber: 0, sugar: 7, sodium: 65),
+                nutritionalData: NutritionalData(calories: 130, protein: 15, carbohydrates: 8, fat: 3, fiber: 0, sugar: 7, sodium: 0.065, availability: .completeNutritionLabel),
                 ingredients: "Cultured skim milk, live active cultures",
                 servingSize: "1 container (150 g)",
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-86_400),
-                nutriScore: "A"
+                nutriScore: "A",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-soup-1",
                 barcode: "900000000003",
-                name: "UI Test Lentil Soup",
-                brand: "Mira Pantry",
+                name: "Garden Lentil Soup",
+                brand: "Mira Demo",
                 category: "Soups",
-                nutritionalData: NutritionalData(calories: 180, protein: 11, carbohydrates: 26, fat: 4, fiber: 7, sugar: 4, sodium: 480),
+                nutritionalData: NutritionalData(calories: 180, protein: 11, carbohydrates: 26, fat: 4, fiber: 7, sugar: 4, sodium: 0.480, availability: .completeNutritionLabel),
                 ingredients: "Water, lentils, tomatoes, carrots, onions, olive oil, garlic, spices",
                 servingSize: "1 bowl (245 g)",
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-172_800),
-                nutriScore: "B"
+                nutriScore: "B",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-crackers-1",
                 barcode: "900000000004",
-                name: "UI Test Seed Crackers",
-                brand: "Mira Pantry",
+                name: "Rosemary Seed Crisps",
+                brand: "Mira Demo",
                 category: "Snacks",
-                nutritionalData: NutritionalData(calories: 140, protein: 4, carbohydrates: 18, fat: 6, fiber: 4, sugar: 2, sodium: 160),
+                nutritionalData: NutritionalData(calories: 140, protein: 4, carbohydrates: 18, fat: 6, fiber: 4, sugar: 2, sodium: 0.160, availability: .completeNutritionLabel),
                 ingredients: "Whole grain flour, flax seeds, sunflower seeds, olive oil, rosemary, sea salt",
                 servingSize: "12 crackers (30 g)",
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-259_200),
-                nutriScore: "B"
+                nutriScore: "B",
+                dataSource: .manual
             ),
             Product(
                 id: "ui-test-bar-1",
                 barcode: "900000000005",
-                name: "UI Test Protein Bar",
-                brand: "Mira Fuel",
+                name: "Cocoa Peanut Protein Bar",
+                brand: "Mira Demo",
                 category: "Bars",
-                nutritionalData: NutritionalData(calories: 190, protein: 14, carbohydrates: 17, fat: 7, fiber: 6, sugar: 5, sodium: 150),
+                nutritionalData: NutritionalData(calories: 190, protein: 14, carbohydrates: 17, fat: 7, fiber: 6, sugar: 5, sodium: 0.150, availability: .completeNutritionLabel),
                 ingredients: "Dates, peanuts, whey protein, cocoa, chicory root fiber, sea salt",
                 servingSize: "1 bar (52 g)",
                 imageURL: nil,
                 thumbnailURL: nil,
                 lastScanned: now.addingTimeInterval(-345_600),
-                nutriScore: "B"
+                nutriScore: "B",
+                dataSource: .manual
             )
         ]
 
-        for product in seededProducts {
+        for product in seededProducts.prefix(seedDemoDataLimit ?? seededProducts.count) {
             try? CoreDataManager.shared.saveProduct(product)
             try? CoreDataManager.shared.saveScanHistory(product: product, healthFocus: HealthFocus.generalWellness.rawValue)
         }
@@ -187,7 +231,9 @@ struct AppLaunchConfiguration {
                 barcode: seededProducts[0].barcode,
                 productName: seededProducts[0].name,
                 brand: seededProducts[0].brand,
-                healthScore: 86,
+                healthScore: seededProducts[0]
+                    .calculateScore(for: HealthFocus.generalWellness.rawValue)
+                    .overall,
                 isChecked: false,
                 addedDate: now,
                 category: seededProducts[0].category

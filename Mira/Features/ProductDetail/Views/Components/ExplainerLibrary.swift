@@ -185,7 +185,7 @@ struct ExplainerLibrary {
             componentName: "Ingredient Quality",
             subtitle: "What's in the ingredients list",
             icon: "list.bullet.clipboard.fill",
-            whatItMeasures: "This component evaluates the ingredient list for quality markers: recognizable whole-food ingredients, absence of highly processed derivatives, short ingredient lists, and transparency. It uses both pattern matching and AI analysis to detect concerning ingredients.",
+            whatItMeasures: "This component evaluates ingredient-list quality markers such as recognizable whole-food ingredients, highly processed derivatives, list length, and label transparency. Mira uses deterministic pattern matching and its versioned ingredient guide; incomplete data is treated conservatively.",
             whyItMatters: whyItMatters,
             examples: [
                 "Excellent: Short list, all recognizable ingredients",

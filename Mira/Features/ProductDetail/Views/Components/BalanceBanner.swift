@@ -3,7 +3,7 @@ import SwiftUI
 /// Banner that reminds users about nutritional balance, shown for low-scoring products
 /// Reduces food anxiety by providing context and perspective
 struct BalanceBanner: View {
-    @AppStorage("hasSeenBalanceBanner") private var hasSeenBalanceBanner = false
+    @AppStorage(Constants.UserDefaults.hasSeenBalanceBanner) private var hasSeenBalanceBanner = false
     @State private var isDismissed = false
 
     let onNavigateToInsights: () -> Void

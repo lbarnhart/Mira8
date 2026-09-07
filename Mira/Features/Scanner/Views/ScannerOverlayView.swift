@@ -61,6 +61,8 @@ private struct ScannerFrameView: View {
                 ScanLineView(isActive: isActive)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(isActive ? "Barcode scanner active" : "Barcode scanner frame")
     }
 }
 private struct ScanLineView: View {
@@ -185,6 +187,7 @@ private struct ErrorMessageView: View {
                     .background(Color.white.opacity(0.1))
                     .clipShape(Circle())
             }
+            .accessibilityLabel("Dismiss scanner error")
         }
         .padding(16)
         .background(Color.red.opacity(0.8))
