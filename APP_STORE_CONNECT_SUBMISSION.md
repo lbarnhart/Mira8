@@ -1,6 +1,6 @@
 # App Store Connect Submission Guide
 
-Prepared for Mira 1.0 (build 1), bundle ID `com.mira8.app`, from app-source commit `c44113310aeb2ce57a62296fad9cf4cb03bb25e5`.
+Prepared for Mira 1.0 (build 1), bundle ID `com.mira8.app`, from app-source commit `c44113310aeb2ce57a62296fad9cf4cb03bb25e5`. Revalidated against Apple's current submission requirements on September 7, 2026.
 
 This guide records recommended answers based on the reviewed Release binary and source. Recheck it if the app's services, business model, or data practices change.
 
@@ -18,6 +18,7 @@ This guide records recommended answers based on the reviewed Release binary and 
 - Scoring methodology: <https://lbarnhart.github.io/Mira8/methodology/>
 - Support email: **barnhartl91@gmail.com**
 - Copyright: **2026 Lauren Barnhart**
+- Build toolchain: **Xcode 26.6 / iOS 26.5 SDK**. This satisfies Apple's current requirement that iOS and iPadOS uploads use Xcode 26 or later and the iOS/iPadOS 26 SDK or later.
 
 Do not upload the previous v1.4 artifact; its in-app privacy summary still described the removed photo-recognition path. Use this regenerated, audited release candidate:
 
@@ -62,6 +63,10 @@ Recommended questionnaire answers:
 
 Expected Apple global rating: **9+**, because the app contains health and wellness topics. Accept App Store Connect's calculated regional ratings rather than overriding them unless the questionnaire shown by Apple differs materially from the reviewed app.
 
+- Made for Kids: **No**.
+- Age-rating override: **Not Applicable**.
+- Age-suitability URL: leave blank unless a dedicated age-suitability page is added.
+
 ## Export Compliance
 
 - Does the app use encryption? **Yes**, only through Apple's operating-system networking for HTTPS.
@@ -88,6 +93,8 @@ Keep source attribution visible and preserve any license notices required by the
 - Sign-in required: **No**.
 - App Review demo account: **Not required**.
 - Regulated medical device: **No**.
+
+Because Mira uses **Health & Fitness** and **Food & Drink** categories, App Store Connect may show the regulated-medical-device declaration. Select the answer confirming that Mira is **not** a regulated medical device. The reviewed app provides general food and nutrition information and explicitly disclaims diagnosis and treatment.
 
 Suggested App Review note:
 
@@ -122,3 +129,5 @@ These cannot be truthfully completed from the codebase:
 5. Attach the five iPhone 6.9-inch and five iPad 13-inch screenshots.
 6. Add the App Review contact phone number and review note.
 7. Select build 1, verify metadata and URLs, then submit for review.
+
+The verified screenshot dimensions are 1320×2868 for iPhone 6.9-inch and 2064×2752 for iPad 13-inch. All ten PNGs are opaque and meet Apple's current accepted dimensions.

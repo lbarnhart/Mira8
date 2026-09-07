@@ -24,6 +24,7 @@
 - Verify barcode scanning end to end on physical devices. Camera permission and a real packaged-food barcode have passed on the connected iPhone.
 - Complete signed Release-build QA on at least one physical iPhone, including offline fallback and data reset. The paired iPhone 17 Pro runs iOS 26.5.2 with Developer Mode enabled, but currently has no device tunnel and must be connected and unlocked before installation. Simulator validation covers small/standard/large iPhone and iPad layouts; test a physical iPad too if one is available, or make an explicit risk acceptance for 1.0.
 - Supply the App Review contact phone number and complete the App Store Connect privacy, age-rating, export-compliance, EU trader-status, and content-rights declarations.
+- Complete the regulated-medical-device declaration shown for Health & Fitness apps; Mira's documented answer is **No**.
 
 Submission field recommendations and the remaining owner-only decisions are recorded in `APP_STORE_CONNECT_SUBMISSION.md`.
 
